@@ -5,13 +5,21 @@ import 'status_badge.dart';
 
 class TokenCard extends StatelessWidget {
   final Token token;
+  final bool compact;
 
-  const TokenCard({super.key, required this.token});
+  const TokenCard({super.key, required this.token, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
+    final arrow = token.isOutgoing
+        ? Icons.north_east
+        : Icons.south_west;
+    final arrowColor = token.isOutgoing
+        ? const Color(0xFFD36A3E)
+        : const Color(0xFF4CAF50);
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      margin: EdgeInsets.symmetric(vertical: compact ? 4 : 8, horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -23,7 +31,7 @@ class TokenCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -38,7 +46,14 @@ class TokenCard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              StatusBadge(status: token.statut),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(arrow, color: arrowColor, size: 18),
+                  const SizedBox(width: 6),
+                  StatusBadge(status: token.statut),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 16),

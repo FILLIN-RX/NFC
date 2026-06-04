@@ -32,7 +32,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'NFC Token App',
+      debugShowCheckedModeBanner: false,
+      title: 'Narco',
       theme: AppTheme.lightTheme,
       routerConfig: AppRouter.router,
     );

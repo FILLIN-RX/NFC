@@ -4,10 +4,20 @@ import 'token_type.dart';
 
 part 'token.g.dart';
 
+class _TokenTypeConverter implements JsonConverter<TokenType, String> {
+  const _TokenTypeConverter();
+
+  @override
+  TokenType fromJson(String json) => TokenType.fromCode(json);
+
+  @override
+  String toJson(TokenType object) => object.code;
+}
+
 @JsonSerializable()
 class Token {
   final String tokenId;
-  final TokenType type;
+  @_TokenTypeConverter() final TokenType type;
   final double valeur;
   final String valeurUnite;
   final DateTime dateCreation;
@@ -16,6 +26,7 @@ class Token {
   final String hash;
   final String signature;
   final String statut;
+  final String direction;
 
   const Token({
     required this.tokenId,
@@ -28,7 +39,11 @@ class Token {
     required this.hash,
     required this.signature,
     required this.statut,
+    this.direction = 'outgoing',
   });
+
+  bool get isOutgoing => direction == 'outgoing';
+  bool get isIncoming => direction == 'incoming';
 
   factory Token.fromJson(Map<String, dynamic> json) => _$TokenFromJson(json);
 
@@ -45,6 +60,7 @@ class Token {
     String? hash,
     String? signature,
     String? statut,
+    String? direction,
   }) {
     return Token(
       tokenId: tokenId ?? this.tokenId,
@@ -57,6 +73,7 @@ class Token {
       hash: hash ?? this.hash,
       signature: signature ?? this.signature,
       statut: statut ?? this.statut,
+      direction: direction ?? this.direction,
     );
   }
 
@@ -74,7 +91,8 @@ class Token {
           proprietaire == other.proprietaire &&
           hash == other.hash &&
           signature == other.signature &&
-          statut == other.statut;
+          statut == other.statut &&
+          direction == other.direction;
 
   @override
   int get hashCode => Object.hash(
@@ -88,6 +106,7 @@ class Token {
         hash,
         signature,
         statut,
+        direction,
       );
 
   @override
@@ -95,6 +114,6 @@ class Token {
     return 'Token(tokenId: $tokenId, type: ${type.code}, valeur: $valeur $valeurUnite, '
         'dateCreation: $dateCreation, dateExpiration: $dateExpiration, '
         'proprietaire: $proprietaire, hash: $hash, signature: $signature, '
-        'statut: $statut)';
+        'statut: $statut, direction: $direction)';
   }
 }

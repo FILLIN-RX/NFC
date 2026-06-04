@@ -12,12 +12,12 @@ class ActionButtons extends StatelessWidget {
       {
         'label': 'Créer',
         'icon': Icons.add_circle_outline,
-        'route': 'create-token',
+        'route': '/create-token',
       },
       {
         'label': 'Envoyer',
         'icon': Icons.north_east,
-        'route': 'transfer',
+        'route': '/transfer',
       },
       {
         'label': 'Recevoir',
@@ -47,7 +47,11 @@ class ActionButtons extends StatelessWidget {
                   onPressed: () {
                     final route = action['route'] as String?;
                     if (route != null) {
-                      context.goNamed(route);
+                      if (route.startsWith('/')) {
+                        context.go(route);
+                      } else {
+                        context.goNamed(route);
+                      }
                     }
                   },
                   icon: Icon(

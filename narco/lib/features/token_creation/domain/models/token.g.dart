@@ -8,7 +8,7 @@ part of 'token.dart';
 
 Token _$TokenFromJson(Map<String, dynamic> json) => Token(
   tokenId: json['tokenId'] as String,
-  type: $enumDecode(_$TokenTypeEnumMap, json['type']),
+  type: const _TokenTypeConverter().fromJson(json['type'] as String),
   valeur: (json['valeur'] as num).toDouble(),
   valeurUnite: json['valeurUnite'] as String? ?? 'FCFA',
   dateCreation: DateTime.parse(json['dateCreation'] as String),
@@ -17,11 +17,12 @@ Token _$TokenFromJson(Map<String, dynamic> json) => Token(
   hash: json['hash'] as String,
   signature: json['signature'] as String,
   statut: json['statut'] as String,
+  direction: json['direction'] as String? ?? 'outgoing',
 );
 
 Map<String, dynamic> _$TokenToJson(Token instance) => <String, dynamic>{
   'tokenId': instance.tokenId,
-  'type': _$TokenTypeEnumMap[instance.type]!,
+  'type': const _TokenTypeConverter().toJson(instance.type),
   'valeur': instance.valeur,
   'valeurUnite': instance.valeurUnite,
   'dateCreation': instance.dateCreation.toIso8601String(),
@@ -30,13 +31,5 @@ Map<String, dynamic> _$TokenToJson(Token instance) => <String, dynamic>{
   'hash': instance.hash,
   'signature': instance.signature,
   'statut': instance.statut,
-};
-
-const _$TokenTypeEnumMap = {
-  TokenType.payment: 'payment',
-  TokenType.ticket: 'ticket',
-  TokenType.loyalty: 'loyalty',
-  TokenType.access: 'access',
-  TokenType.voucher: 'voucher',
-  TokenType.other: 'other',
+  'direction': instance.direction,
 };

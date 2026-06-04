@@ -11,7 +11,6 @@ class TransactionList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row: Title and View All
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -24,11 +23,7 @@ class TransactionList extends StatelessWidget {
               ),
               Row(
                 children: [
-                  const Icon(
-                    Icons.search,
-                    color: AppTheme.textSecondary,
-                    size: 20,
-                  ),
+                  const Icon(Icons.search, color: AppTheme.textSecondary, size: 20),
                   const SizedBox(width: 8),
                   TextButton(
                     onPressed: () {},
@@ -45,7 +40,6 @@ class TransactionList extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          // Date Separator
           Text(
             'April 26, 2023',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -55,7 +49,6 @@ class TransactionList extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 12),
-          // Transaction Items
           _buildTransactionItem(
             context,
             icon: Icons.credit_card,
@@ -103,7 +96,7 @@ class TransactionList extends StatelessWidget {
             amount: '- 85.00\n€',
             amountColor: AppTheme.textPrimary,
           ),
-          const SizedBox(height: 80), // Padding at the bottom for navigation bar
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -135,7 +128,6 @@ class TransactionList extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Left Icon Circular Badge
           Container(
             width: 48,
             height: 48,
@@ -143,14 +135,9 @@ class TransactionList extends StatelessWidget {
               color: iconBgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 24,
-            ),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
           const SizedBox(width: 16),
-          // Middle Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +166,6 @@ class TransactionList extends StatelessWidget {
               ],
             ),
           ),
-          // Right Amount
           Text(
             amount,
             textAlign: TextAlign.right,

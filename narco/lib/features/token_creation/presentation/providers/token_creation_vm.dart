@@ -96,6 +96,7 @@ class TokenCreationViewModel extends _$TokenCreationViewModel {
         hash: hash,
         signature: signature,
         statut: 'actif',
+        direction: 'outgoing',
       );
 
       final repository = ref.read(tokenRepositoryProvider);

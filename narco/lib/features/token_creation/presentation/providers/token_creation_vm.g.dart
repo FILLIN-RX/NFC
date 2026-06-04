@@ -42,7 +42,7 @@ final class TokenCreationViewModelProvider
 }
 
 String _$tokenCreationViewModelHash() =>
-    r'7890037bd0b69f68800afbf23895413f7c897869';
+    r'40da3f601b68cc25bf37056dc87373fa088ecd7d';
 
 abstract class _$TokenCreationViewModel extends $Notifier<TokenCreationState> {
   TokenCreationState build();

@@ -26,7 +26,7 @@ class TokenRepositoryImpl implements TokenRepository {
       return const Success(null);
     } catch (e) {
       AppLogger.error('REPOSITORY', 'Échec de sauvegarde', e);
-      return Failure('Impossible de sauvegarder le jeton.', error: e as Exception?);
+      return Failure('Impossible de sauvegarder le jeton.', error: e);
     }
   }
 
@@ -54,7 +54,7 @@ class TokenRepositoryImpl implements TokenRepository {
       return const Success(null);
     } catch (e) {
       AppLogger.error('REPOSITORY', 'Erreur de lecture', e);
-      return Failure('Erreur lors de la récupération du jeton.', error: e as Exception?);
+      return Failure('Erreur lors de la récupération du jeton.', error: e);
     }
   }
 
@@ -67,7 +67,7 @@ class TokenRepositoryImpl implements TokenRepository {
       return Success(tokens);
     } catch (e) {
       AppLogger.error('REPOSITORY', 'Erreur de liste', e);
-      return Failure('Impossible de charger les jetons.', error: e as Exception?);
+      return Failure('Impossible de charger les jetons.', error: e);
     }
   }
 
@@ -93,7 +93,7 @@ class TokenRepositoryImpl implements TokenRepository {
       return const Success(null);
     } catch (e) {
       AppLogger.error('REPOSITORY', 'Erreur de mise à jour du statut', e);
-      return Failure('Échec de la mise à jour du statut.', error: e as Exception?);
+      return Failure('Échec de la mise à jour du statut.', error: e);
     }
   }
 
@@ -114,7 +114,7 @@ class TokenRepositoryImpl implements TokenRepository {
       return const Success(null);
     } catch (e) {
       AppLogger.error('REPOSITORY', 'Erreur de suppression', e);
-      return Failure('Échec de la suppression du jeton.', error: e as Exception?);
+      return Failure('Échec de la suppression du jeton.', error: e);
     }
   }
 }
