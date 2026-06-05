@@ -22,6 +22,7 @@ class ActionButtons extends StatelessWidget {
       {
         'label': 'Recevoir',
         'icon': Icons.south_west,
+        'route': '/transfer/nfc?method=nfc',
       },
       {
         'label': 'Stats',
