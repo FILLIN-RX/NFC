@@ -3,10 +3,12 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/result.dart';
 import '../../../home/presentation/providers/active_transfer_provider.dart';
+import '../../../home/presentation/providers/token_list_provider.dart';
 import '../../../token_creation/domain/models/token.dart';
 import '../../../token_creation/presentation/providers/repository_provider.dart';
 import '../../data/services/bluetooth_service.dart';
 import '../../data/services/nfc_service.dart';
+import '../screens/transfer_selection_screen.dart';
 
 part 'transfer_vm.g.dart';
 
@@ -94,6 +96,7 @@ class TransferViewModel extends _$TransferViewModel {
     switch (result) {
       case Success():
         await repository.updateTokenStatus(token.tokenId, 'transféré');
+        _refreshWallet();
         state = state.copyWith(status: TransferStatus.success, error: null);
       case Failure(:final message):
         state = state.copyWith(status: TransferStatus.error, error: message);
@@ -119,6 +122,7 @@ class TransferViewModel extends _$TransferViewModel {
         final saveResult = await ref.read(tokenRepositoryProvider).saveToken(received);
         switch (saveResult) {
           case Success():
+            _refreshWallet();
             state = state.copyWith(
               status: TransferStatus.success,
               token: received,
@@ -164,6 +168,7 @@ class TransferViewModel extends _$TransferViewModel {
     switch (result) {
       case Success():
         await repository.updateTokenStatus(token.tokenId, 'transféré');
+        _refreshWallet();
         state = state.copyWith(status: TransferStatus.success, error: null);
       case Failure(:final message):
         state = state.copyWith(status: TransferStatus.error, error: message);
@@ -190,6 +195,7 @@ class TransferViewModel extends _$TransferViewModel {
         final saveResult = await ref.read(tokenRepositoryProvider).saveToken(received);
         switch (saveResult) {
           case Success():
+            _refreshWallet();
             state = state.copyWith(
               status: TransferStatus.success,
               token: received,
@@ -209,6 +215,12 @@ class TransferViewModel extends _$TransferViewModel {
     await ref.read(bluetoothServiceProvider).cancel();
     ref.read(activeTransferProvider.notifier).stop();
     state = state.copyWith(status: TransferStatus.idle, error: null);
+  }
+
+  /// Rafraîchit le portefeuille (accueil + liste transférable) après un transfert.
+  void _refreshWallet() {
+    ref.invalidate(tokenListProvider);
+    ref.invalidate(transferableTokensProvider);
   }
 
   void _onBtStage(BtTransferStage stage) {

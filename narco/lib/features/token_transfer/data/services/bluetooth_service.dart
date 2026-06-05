@@ -113,6 +113,9 @@ class BluetoothService {
     void Function(BtTransferStage stage)? onStage,
     int retries = AppConstants.bluetoothMaxRetry,
   }) async {
+    if (!await ensurePermissions()) {
+      return Failure('Permissions Bluetooth refusées.');
+    }
     if (!await isEnabled()) {
       return Failure('Le Bluetooth est désactivé. Veuillez l\'activer.');
     }
@@ -157,6 +160,9 @@ class BluetoothService {
     void Function(BtTransferStage stage)? onStage,
     Duration timeout = _defaultTimeout,
   }) async {
+    if (!await ensurePermissions()) {
+      return Failure('Permissions Bluetooth refusées.');
+    }
     if (!await isEnabled()) {
       return Failure('Le Bluetooth est désactivé. Veuillez l\'activer.');
     }

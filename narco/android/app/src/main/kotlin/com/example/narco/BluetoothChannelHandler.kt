@@ -237,7 +237,12 @@ class BluetoothChannelHandler(
             }
         }
         discoveryReceiver = receiver
-        context.registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
+        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(receiver, filter)
+        }
         adapter?.startDiscovery()
     }
 
