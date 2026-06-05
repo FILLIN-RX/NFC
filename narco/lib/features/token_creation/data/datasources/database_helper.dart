@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_logger.dart';
 
 class DatabaseHelper {
@@ -10,7 +11,7 @@ class DatabaseHelper {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('tokens.db');
+    _database = await _initDB(AppConstants.dbName);
     return _database!;
   }
 
@@ -21,7 +22,7 @@ class DatabaseHelper {
     AppLogger.info('DATABASE', 'Initialisation de la base SQLite à : $path');
     return await openDatabase(
       path,
-      version: 3,
+      version: AppConstants.dbVersion,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );

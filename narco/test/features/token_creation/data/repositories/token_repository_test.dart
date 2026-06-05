@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:narco/core/utils/result.dart';
 import 'package:narco/features/token_creation/domain/models/token.dart';
+import 'package:narco/features/token_creation/domain/models/token_type.dart';
 import 'package:narco/features/token_creation/domain/repositories/token_repository.dart';
 
 class MockTokenRepository extends Mock implements TokenRepository {
@@ -26,6 +27,20 @@ class MockTokenRepository extends Mock implements TokenRepository {
       super.noSuchMethod(Invocation.method(#deleteToken, [tokenId]), returnValue: Future.value(const Success<void>(null)));
 }
 
+Token _buildToken({String id = '123'}) {
+  return Token(
+    tokenId: id,
+    type: TokenType.payment,
+    valeur: 10.0,
+    dateCreation: DateTime(2024, 1, 1),
+    dateExpiration: DateTime(2024, 2, 1),
+    proprietaire: 'User',
+    hash: 'hash',
+    signature: 'sig',
+    statut: 'actif',
+  );
+}
+
 void main() {
   group('TokenRepository Mock Tests', () {
     late MockTokenRepository repository;
@@ -35,17 +50,7 @@ void main() {
     });
 
     test('saveToken returns Success on successful save', () async {
-      final token = Token(
-        tokenId: '123',
-        type: 'Test',
-        valeur: 10.0,
-        dateCreation: DateTime.now(),
-        dateExpiration: DateTime.now().add(const Duration(days: 1)),
-        proprietaire: 'User',
-        hash: 'hash',
-        signature: 'sig',
-        statut: 'actif',
-      );
+      final token = _buildToken();
 
       when(repository.saveToken(token)).thenAnswer((_) async => const Success(null));
 
@@ -54,29 +59,58 @@ void main() {
     });
 
     test('getTokenById returns token when found', () async {
-      final token = Token(
-        tokenId: '123',
-        type: 'Test',
-        valeur: 10.0,
-        dateCreation: DateTime.now(),
-        dateExpiration: DateTime.now().add(const Duration(days: 1)),
-        proprietaire: 'User',
-        hash: 'hash',
-        signature: 'sig',
-        statut: 'actif',
-      );
+      final token = _buildToken();
 
       when(repository.getTokenById('123')).thenAnswer((_) async => Success(token));
 
       final result = await repository.getTokenById('123');
       expect(result, isA<Success<Token?>>());
-      
-      switch(result) {
+
+      switch (result) {
         case Success(:final data):
           expect(data?.tokenId, '123');
+          expect(data?.type, TokenType.payment);
         case Failure():
           fail('Expected Success');
       }
+    });
+
+    test('getAllTokens returns the stored list', () async {
+      final tokens = [_buildToken(id: 'a'), _buildToken(id: 'b')];
+
+      when(repository.getAllTokens()).thenAnswer((_) async => Success(tokens));
+
+      final result = await repository.getAllTokens();
+
+      switch (result) {
+        case Success(:final data):
+          expect(data.length, 2);
+        case Failure():
+          fail('Expected Success');
+      }
+    });
+  });
+
+  group('Token model', () {
+    test('serializes and deserializes via JSON (round-trip)', () {
+      final token = _buildToken();
+      final json = token.toJson();
+
+      expect(json['type'], 'PAYMENT');
+      expect(json['direction'], 'outgoing');
+
+      final restored = Token.fromJson(json);
+      expect(restored, token);
+    });
+
+    test('direction getters reflect the value', () {
+      final outgoing = _buildToken();
+      expect(outgoing.isOutgoing, true);
+      expect(outgoing.isIncoming, false);
+
+      final incoming = outgoing.copyWith(direction: 'incoming');
+      expect(incoming.isIncoming, true);
+      expect(incoming.isOutgoing, false);
     });
   });
 }

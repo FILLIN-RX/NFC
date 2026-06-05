@@ -6,7 +6,7 @@ part of 'token.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Token _$TokenFromJson(Map<String, dynamic> json) => Token(
+_Token _$TokenFromJson(Map<String, dynamic> json) => _Token(
   tokenId: json['tokenId'] as String,
   type: const _TokenTypeConverter().fromJson(json['type'] as String),
   valeur: (json['valeur'] as num).toDouble(),
@@ -20,7 +20,7 @@ Token _$TokenFromJson(Map<String, dynamic> json) => Token(
   direction: json['direction'] as String? ?? 'outgoing',
 );
 
-Map<String, dynamic> _$TokenToJson(Token instance) => <String, dynamic>{
+Map<String, dynamic> _$TokenToJson(_Token instance) => <String, dynamic>{
   'tokenId': instance.tokenId,
   'type': const _TokenTypeConverter().toJson(instance.type),
   'valeur': instance.valeur,

@@ -80,6 +80,24 @@ class TokenCreationViewModel extends _$TokenCreationViewModel {
       final tokenId = const Uuid().v4();
       final type = state.tokenType;
 
+      final repository = ref.read(tokenRepositoryProvider);
+
+      final existing = await repository.getTokenById(tokenId);
+      switch (existing) {
+        case Success(:final data):
+          if (data != null) {
+            AppLogger.warning('CREATE_VM', 'Collision UUID détectée: $tokenId');
+            state = state.copyWith(
+              isSubmitting: false,
+              error: 'Un jeton avec cet identifiant existe déjà (UUID existant).',
+            );
+            return;
+          }
+        case Failure(:final message):
+          state = state.copyWith(isSubmitting: false, error: message);
+          return;
+      }
+
       final rawData = '$tokenId|${type.code}|$valeur|${state.proprietaire}|$now';
       final hash = sha256.convert(utf8.encode(rawData)).toString();
       final key = utf8.encode('narco-secret-key');
@@ -99,7 +117,6 @@ class TokenCreationViewModel extends _$TokenCreationViewModel {
         direction: 'outgoing',
       );
 
-      final repository = ref.read(tokenRepositoryProvider);
       final result = await repository.saveToken(token);
 
       switch (result) {

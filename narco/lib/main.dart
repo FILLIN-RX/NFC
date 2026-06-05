@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/appTheme.dart';
+import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/utils/app_logger.dart';
 import 'features/token_creation/data/datasources/database_helper.dart';
@@ -10,7 +11,7 @@ void main() async {
 
   try {
     await Hive.initFlutter();
-    await Hive.openBox('token_cache');
+    await Hive.openBox(AppConstants.hiveBoxName);
     AppLogger.info('HIVE', 'Hive initialisé avec succès.');
 
     await DatabaseHelper.instance.database;
