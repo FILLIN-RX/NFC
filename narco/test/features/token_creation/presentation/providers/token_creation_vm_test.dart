@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:narco/core/utils/result.dart';
 import 'package:narco/features/token_creation/domain/models/token.dart';
+import 'package:narco/features/token_creation/domain/models/token_type.dart';
 import 'package:narco/features/token_creation/domain/repositories/token_repository.dart';
 import 'package:narco/features/token_creation/presentation/providers/repository_provider.dart';
 import 'package:narco/features/token_creation/presentation/providers/token_creation_vm.dart';
@@ -37,7 +38,7 @@ void main() {
 
     test('Initial state is empty', () {
       final state = container.read(tokenCreationViewModelProvider);
-      expect(state.type, '');
+      expect(state.tokenType, TokenType.payment);
       expect(state.valeurText, '');
       expect(state.proprietaire, '');
       expect(state.isSubmitting, false);
@@ -45,47 +46,40 @@ void main() {
       expect(state.isSuccess, false);
     });
 
-    test('Validation fails on empty type', () async {
-      container.read(tokenCreationViewModelProvider.notifier).setValeur('10');
-      container.read(tokenCreationViewModelProvider.notifier).setProprietaire('User');
-      
-      await container.read(tokenCreationViewModelProvider.notifier).createToken();
-      
-      final state = container.read(tokenCreationViewModelProvider);
-      expect(state.error, 'Le type est requis.');
-    });
-
     test('Validation fails on invalid valeur', () async {
-      container.read(tokenCreationViewModelProvider.notifier).setType('Test');
-      container.read(tokenCreationViewModelProvider.notifier).setValeur('invalid');
-      container.read(tokenCreationViewModelProvider.notifier).setProprietaire('User');
-      
-      await container.read(tokenCreationViewModelProvider.notifier).createToken();
-      
+      final notifier = container.read(tokenCreationViewModelProvider.notifier);
+      notifier.setValeur('invalid');
+      notifier.setProprietaire('User');
+
+      await notifier.createToken();
+
       final state = container.read(tokenCreationViewModelProvider);
       expect(state.error, 'La valeur doit être un nombre positif.');
+      expect(state.isSuccess, false);
     });
 
     test('Validation fails on empty proprietaire', () async {
-      container.read(tokenCreationViewModelProvider.notifier).setType('Test');
-      container.read(tokenCreationViewModelProvider.notifier).setValeur('10');
-      
-      await container.read(tokenCreationViewModelProvider.notifier).createToken();
-      
+      final notifier = container.read(tokenCreationViewModelProvider.notifier);
+      notifier.setValeur('10');
+
+      await notifier.createToken();
+
       final state = container.read(tokenCreationViewModelProvider);
       expect(state.error, 'Le propriétaire est requis.');
+      expect(state.isSuccess, false);
     });
 
     test('Successfully creates a token', () async {
-      container.read(tokenCreationViewModelProvider.notifier).setType('Test');
-      container.read(tokenCreationViewModelProvider.notifier).setValeur('10');
-      container.read(tokenCreationViewModelProvider.notifier).setProprietaire('User');
-      
+      final notifier = container.read(tokenCreationViewModelProvider.notifier);
+      notifier.setTokenType(TokenType.payment);
+      notifier.setValeur('10');
+      notifier.setProprietaire('User');
+
       when(mockRepository.getTokenById(any)).thenAnswer((_) async => const Success(null));
       when(mockRepository.saveToken(any)).thenAnswer((_) async => const Success(null));
 
-      await container.read(tokenCreationViewModelProvider.notifier).createToken();
-      
+      await notifier.createToken();
+
       final state = container.read(tokenCreationViewModelProvider);
       expect(state.error, isNull);
       expect(state.isSubmitting, false);
@@ -93,26 +87,27 @@ void main() {
     });
 
     test('Fails when UUID already exists', () async {
-      container.read(tokenCreationViewModelProvider.notifier).setType('Test');
-      container.read(tokenCreationViewModelProvider.notifier).setValeur('10');
-      container.read(tokenCreationViewModelProvider.notifier).setProprietaire('User');
-      
-      final token = Token(
+      final notifier = container.read(tokenCreationViewModelProvider.notifier);
+      notifier.setTokenType(TokenType.payment);
+      notifier.setValeur('10');
+      notifier.setProprietaire('User');
+
+      final existing = Token(
         tokenId: '123',
-        type: 'Test',
+        type: TokenType.payment,
         valeur: 10.0,
-        dateCreation: DateTime.now(),
-        dateExpiration: DateTime.now().add(const Duration(days: 1)),
+        dateCreation: DateTime(2024, 1, 1),
+        dateExpiration: DateTime(2024, 2, 1),
         proprietaire: 'User',
         hash: 'hash',
         signature: 'sig',
         statut: 'actif',
       );
 
-      when(mockRepository.getTokenById(any)).thenAnswer((_) async => Success(token));
+      when(mockRepository.getTokenById(any)).thenAnswer((_) async => Success(existing));
 
-      await container.read(tokenCreationViewModelProvider.notifier).createToken();
-      
+      await notifier.createToken();
+
       final state = container.read(tokenCreationViewModelProvider);
       expect(state.error, 'Un jeton avec cet identifiant existe déjà (UUID existant).');
       expect(state.isSuccess, false);

@@ -1,7 +1,8 @@
-import 'package:json_annotation/json_annotation.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'token_type.dart';
 
+part 'token.freezed.dart';
 part 'token.g.dart';
 
 class _TokenTypeConverter implements JsonConverter<TokenType, String> {
@@ -14,106 +15,26 @@ class _TokenTypeConverter implements JsonConverter<TokenType, String> {
   String toJson(TokenType object) => object.code;
 }
 
-@JsonSerializable()
-class Token {
-  final String tokenId;
-  @_TokenTypeConverter() final TokenType type;
-  final double valeur;
-  final String valeurUnite;
-  final DateTime dateCreation;
-  final DateTime dateExpiration;
-  final String proprietaire;
-  final String hash;
-  final String signature;
-  final String statut;
-  final String direction;
+@freezed
+abstract class Token with _$Token {
+  const Token._();
 
-  const Token({
-    required this.tokenId,
-    required this.type,
-    required this.valeur,
-    this.valeurUnite = 'FCFA',
-    required this.dateCreation,
-    required this.dateExpiration,
-    required this.proprietaire,
-    required this.hash,
-    required this.signature,
-    required this.statut,
-    this.direction = 'outgoing',
-  });
+  const factory Token({
+    required String tokenId,
+    @_TokenTypeConverter() required TokenType type,
+    required double valeur,
+    @Default('FCFA') String valeurUnite,
+    required DateTime dateCreation,
+    required DateTime dateExpiration,
+    required String proprietaire,
+    required String hash,
+    required String signature,
+    required String statut,
+    @Default('outgoing') String direction,
+  }) = _Token;
 
   bool get isOutgoing => direction == 'outgoing';
   bool get isIncoming => direction == 'incoming';
 
   factory Token.fromJson(Map<String, dynamic> json) => _$TokenFromJson(json);
-
-  Map<String, dynamic> toJson() => _$TokenToJson(this);
-
-  Token copyWith({
-    String? tokenId,
-    TokenType? type,
-    double? valeur,
-    String? valeurUnite,
-    DateTime? dateCreation,
-    DateTime? dateExpiration,
-    String? proprietaire,
-    String? hash,
-    String? signature,
-    String? statut,
-    String? direction,
-  }) {
-    return Token(
-      tokenId: tokenId ?? this.tokenId,
-      type: type ?? this.type,
-      valeur: valeur ?? this.valeur,
-      valeurUnite: valeurUnite ?? this.valeurUnite,
-      dateCreation: dateCreation ?? this.dateCreation,
-      dateExpiration: dateExpiration ?? this.dateExpiration,
-      proprietaire: proprietaire ?? this.proprietaire,
-      hash: hash ?? this.hash,
-      signature: signature ?? this.signature,
-      statut: statut ?? this.statut,
-      direction: direction ?? this.direction,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is Token &&
-          runtimeType == other.runtimeType &&
-          tokenId == other.tokenId &&
-          type == other.type &&
-          valeur == other.valeur &&
-          valeurUnite == other.valeurUnite &&
-          dateCreation == other.dateCreation &&
-          dateExpiration == other.dateExpiration &&
-          proprietaire == other.proprietaire &&
-          hash == other.hash &&
-          signature == other.signature &&
-          statut == other.statut &&
-          direction == other.direction;
-
-  @override
-  int get hashCode => Object.hash(
-        tokenId,
-        type,
-        valeur,
-        valeurUnite,
-        dateCreation,
-        dateExpiration,
-        proprietaire,
-        hash,
-        signature,
-        statut,
-        direction,
-      );
-
-  @override
-  String toString() {
-    return 'Token(tokenId: $tokenId, type: ${type.code}, valeur: $valeur $valeurUnite, '
-        'dateCreation: $dateCreation, dateExpiration: $dateExpiration, '
-        'proprietaire: $proprietaire, hash: $hash, signature: $signature, '
-        'statut: $statut, direction: $direction)';
-  }
 }

@@ -4,10 +4,14 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/appTheme.dart';
 
 class ChannelSelectionDialog extends StatelessWidget {
-  final String tokenId;
+  /// Identifiant du jeton à envoyer. `null` ⇒ mode réception.
+  final String? tokenId;
 
-  const ChannelSelectionDialog({super.key, required this.tokenId});
+  const ChannelSelectionDialog({super.key, this.tokenId});
 
+  bool get _isReceive => tokenId == null;
+
+  /// Sélecteur de canal pour l'envoi d'un jeton.
   static Future<void> show(BuildContext context, String tokenId) {
     return showModalBottomSheet(
       context: context,
@@ -15,6 +19,22 @@ class ChannelSelectionDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => ChannelSelectionDialog(tokenId: tokenId),
     );
+  }
+
+  /// Sélecteur de canal pour la réception d'un jeton.
+  static Future<void> showForReceive(BuildContext context) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ChannelSelectionDialog(),
+    );
+  }
+
+  void _goToTransfer(BuildContext context, String method) {
+    final params = <String, String>{'method': method};
+    if (!_isReceive) params['tokenId'] = tokenId!;
+    context.goNamed('transfer', queryParameters: params);
   }
 
   @override
@@ -39,10 +59,12 @@ class ChannelSelectionDialog extends StatelessWidget {
             child: const Icon(Icons.wifi_tethering, color: Colors.white, size: 24),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Choisissez votre\ncanal de diffusion',
+          Text(
+            _isReceive
+                ? 'Choisissez votre\ncanal de réception'
+                : 'Choisissez votre\ncanal de diffusion',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimary,
@@ -50,9 +72,11 @@ class ChannelSelectionDialog extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Le jeton sera transmis de manière sécurisée',
+            _isReceive
+                ? 'Le jeton sera reçu de manière sécurisée'
+                : 'Le jeton sera transmis de manière sécurisée',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               color: AppTheme.textSecondary,
             ),
@@ -65,12 +89,7 @@ class ChannelSelectionDialog extends StatelessWidget {
                   icon: Icons.nfc,
                   label: 'NFC',
                   subtitle: 'Proximité',
-                  onTap: () {
-                    context.goNamed(
-                      'transfer',
-                      queryParameters: {'method': 'nfc', 'tokenId': tokenId},
-                    );
-                  },
+                  onTap: () => _goToTransfer(context, 'nfc'),
                 ),
               ),
               const SizedBox(width: 16),
@@ -79,12 +98,7 @@ class ChannelSelectionDialog extends StatelessWidget {
                   icon: Icons.bluetooth,
                   label: 'Bluetooth',
                   subtitle: 'Distance',
-                  onTap: () {
-                    context.goNamed(
-                      'transfer',
-                      queryParameters: {'method': 'bluetooth', 'tokenId': tokenId},
-                    );
-                  },
+                  onTap: () => _goToTransfer(context, 'bluetooth'),
                 ),
               ),
             ],

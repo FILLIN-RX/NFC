@@ -9,7 +9,6 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color backgroundColor;
-    Color textColor = Colors.white;
 
     switch (status.toLowerCase()) {
       case 'actif':

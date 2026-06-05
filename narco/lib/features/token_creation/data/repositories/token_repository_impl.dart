@@ -1,5 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:sqflite/sqflite.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/models/token.dart';
@@ -9,7 +10,7 @@ import '../datasources/database_helper.dart';
 class TokenRepositoryImpl implements TokenRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
-  Box get _cacheBox => Hive.box('token_cache');
+  Box get _cacheBox => Hive.box(AppConstants.hiveBoxName);
 
   @override
   Future<Result<void>> saveToken(Token token) async {
