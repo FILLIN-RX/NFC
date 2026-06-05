@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/appTheme.dart';
 import '../../../token_creation/presentation/widgets/token_card.dart';
+import '../../data/services/bluetooth_service.dart';
 import '../providers/transfer_vm.dart';
+import '../widgets/bt_device_list.dart';
 import '../widgets/nfc_animation.dart';
 
 class TransferScreen extends ConsumerStatefulWidget {
@@ -18,6 +20,8 @@ class TransferScreen extends ConsumerStatefulWidget {
 }
 
 class _TransferScreenState extends ConsumerState<TransferScreen> {
+  String? _selectedAddress;
+
   bool get _isBluetooth => widget.method == 'bluetooth';
   bool get _isReceive => widget.tokenId == null;
 
@@ -28,13 +32,25 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
   }
 
   void _start() {
-    if (_isBluetooth) return; // Bluetooth : Phase 2 (à venir).
     final vm = ref.read(transferViewModelProvider.notifier);
-    if (_isReceive) {
-      vm.startReceive();
+    if (_isBluetooth) {
+      if (_isReceive) {
+        vm.startBluetoothReceive();
+      } else if (_selectedAddress != null) {
+        vm.startBluetoothSend(widget.tokenId!, _selectedAddress!);
+      }
     } else {
-      vm.startSend(widget.tokenId!);
+      if (_isReceive) {
+        vm.startReceive();
+      } else {
+        vm.startSend(widget.tokenId!);
+      }
     }
+  }
+
+  void _onDeviceSelected(BtDevice device) {
+    setState(() => _selectedAddress = device.address);
+    ref.read(transferViewModelProvider.notifier).startBluetoothSend(widget.tokenId!, device.address);
   }
 
   @override
@@ -61,13 +77,21 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: _isBluetooth ? _buildBluetoothPlaceholder() : _buildNfcBody(state),
+          child: _buildBody(state),
         ),
       ),
     );
   }
 
-  Widget _buildNfcBody(TransferState state) {
+  Widget _buildBody(TransferState state) {
+    // Envoi Bluetooth : sélection de l'appareil tant qu'aucun n'est choisi.
+    if (_isBluetooth &&
+        !_isReceive &&
+        _selectedAddress == null &&
+        state.status == TransferStatus.idle) {
+      return BluetoothDeviceList(onSelected: _onDeviceSelected);
+    }
+
     switch (state.status) {
       case TransferStatus.success:
         return _buildSuccess(state);
@@ -85,7 +109,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
     return Column(
       children: [
         const Spacer(),
-        const NfcAnimationOverlay(),
+        NfcAnimationOverlay(icon: _isBluetooth ? Icons.bluetooth : Icons.nfc),
         const SizedBox(height: 32),
         Text(
           _stageLabel(state),
@@ -98,9 +122,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          _isReceive
-              ? 'Rapprochez l\'autre téléphone pour recevoir le jeton.'
-              : 'Rapprochez les deux téléphones dos à dos.',
+          _subtitle(),
           textAlign: TextAlign.center,
           style: const TextStyle(color: AppTheme.textSecondary),
         ),
@@ -209,42 +231,27 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
     );
   }
 
-  Widget _buildBluetoothPlaceholder() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.bluetooth, size: 64, color: AppTheme.textSecondary),
-          const SizedBox(height: 16),
-          const Text(
-            'Transfert Bluetooth',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Fonctionnalité à venir (Phase 2 Dev 2).',
-            style: TextStyle(color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: () => context.go('/'),
-            child: const Text('Retour à l\'accueil'),
-          ),
-        ],
-      ),
-    );
-  }
-
   String _stageLabel(TransferState state) {
     switch (state.status) {
       case TransferStatus.connected:
-        return 'Appareil détecté…';
+        return _isBluetooth ? 'Connexion à l\'appareil…' : 'Appareil détecté…';
       case TransferStatus.transferring:
         return 'Transfert en cours…';
       case TransferStatus.waiting:
       default:
         return _isReceive ? 'En attente de réception…' : 'En attente du récepteur…';
     }
+  }
+
+  String _subtitle() {
+    if (_isBluetooth) {
+      return _isReceive
+          ? 'Restez à proximité de l\'émetteur.'
+          : 'Connexion et envoi sécurisé en cours.';
+    }
+    return _isReceive
+        ? 'Rapprochez l\'autre téléphone pour recevoir le jeton.'
+        : 'Rapprochez les deux téléphones dos à dos.';
   }
 
   void _showErrorDialog(String message) {

@@ -132,11 +132,97 @@ class TransferViewModel extends _$TransferViewModel {
     }
   }
 
+  /// Envoie un jeton vers un appareil Bluetooth choisi (rôle client RFCOMM).
+  Future<void> startBluetoothSend(String tokenId, String address) async {
+    final repository = ref.read(tokenRepositoryProvider);
+
+    final tokenResult = await repository.getTokenById(tokenId);
+    final token = switch (tokenResult) {
+      Success(:final data) => data,
+      Failure() => null,
+    };
+
+    if (token == null) {
+      state = state.copyWith(status: TransferStatus.error, error: 'Jeton introuvable.');
+      return;
+    }
+
+    state = state.copyWith(
+      token: token,
+      isReceiveMode: false,
+      method: 'bluetooth',
+      status: TransferStatus.connected,
+      error: null,
+    );
+    ref.read(activeTransferProvider.notifier).start();
+
+    final result =
+        await ref.read(bluetoothServiceProvider).sendToken(token, address, onStage: _onBtStage);
+
+    ref.read(activeTransferProvider.notifier).stop();
+
+    switch (result) {
+      case Success():
+        await repository.updateTokenStatus(token.tokenId, 'transféré');
+        state = state.copyWith(status: TransferStatus.success, error: null);
+      case Failure(:final message):
+        state = state.copyWith(status: TransferStatus.error, error: message);
+    }
+  }
+
+  /// Reçoit un jeton via Bluetooth (rôle serveur RFCOMM).
+  Future<void> startBluetoothReceive() async {
+    state = state.copyWith(
+      isReceiveMode: true,
+      method: 'bluetooth',
+      status: TransferStatus.waiting,
+      error: null,
+    );
+    ref.read(activeTransferProvider.notifier).start();
+
+    final result = await ref.read(bluetoothServiceProvider).receiveToken(onStage: _onBtStage);
+
+    ref.read(activeTransferProvider.notifier).stop();
+
+    switch (result) {
+      case Success(:final data):
+        final received = data.copyWith(direction: 'incoming', statut: 'actif');
+        final saveResult = await ref.read(tokenRepositoryProvider).saveToken(received);
+        switch (saveResult) {
+          case Success():
+            state = state.copyWith(
+              status: TransferStatus.success,
+              token: received,
+              error: null,
+            );
+          case Failure(:final message):
+            state = state.copyWith(status: TransferStatus.error, error: message);
+        }
+      case Failure(:final message):
+        state = state.copyWith(status: TransferStatus.error, error: message);
+    }
+  }
+
   /// Annule un transfert en cours.
   Future<void> cancel() async {
     await ref.read(nfcServiceProvider).cancelSending();
+    await ref.read(bluetoothServiceProvider).cancel();
     ref.read(activeTransferProvider.notifier).stop();
     state = state.copyWith(status: TransferStatus.idle, error: null);
+  }
+
+  void _onBtStage(BtTransferStage stage) {
+    final mapped = switch (stage) {
+      BtTransferStage.waiting => TransferStatus.waiting,
+      BtTransferStage.connecting => TransferStatus.connected,
+      BtTransferStage.transferring => TransferStatus.transferring,
+      BtTransferStage.completed => TransferStatus.transferring,
+    };
+    if (state.status == TransferStatus.success || state.status == TransferStatus.error) {
+      return;
+    }
+    AppLogger.bluetooth('Étape transfert : ${stage.name}');
+    state = state.copyWith(status: mapped);
   }
 
   void _onStage(NfcTransferStage stage) {
