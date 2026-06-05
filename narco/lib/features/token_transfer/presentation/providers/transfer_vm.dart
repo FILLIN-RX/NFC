@@ -5,6 +5,7 @@ import '../../../../core/utils/result.dart';
 import '../../../home/presentation/providers/active_transfer_provider.dart';
 import '../../../token_creation/domain/models/token.dart';
 import '../../../token_creation/presentation/providers/repository_provider.dart';
+import '../../data/services/bluetooth_service.dart';
 import '../../data/services/nfc_service.dart';
 
 part 'transfer_vm.g.dart';

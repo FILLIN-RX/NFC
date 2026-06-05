@@ -20,9 +20,15 @@ class MainActivity : FlutterActivity() {
     private var eventSink: EventChannel.EventSink? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    @Suppress("unused")
+    private var bluetoothHandler: BluetoothChannelHandler? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        // Pont Bluetooth classique (RFCOMM / SPP).
+        bluetoothHandler = BluetoothChannelHandler(applicationContext, messenger)
 
         MethodChannel(messenger, methodChannelName).setMethodCallHandler { call, result ->
             when (call.method) {
