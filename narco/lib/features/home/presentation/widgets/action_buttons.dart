@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/appTheme.dart';
+import '../../../token_transfer/presentation/widgets/channel_selection_dialog.dart';
 
 class ActionButtons extends StatelessWidget {
   const ActionButtons({super.key});
@@ -22,7 +23,7 @@ class ActionButtons extends StatelessWidget {
       {
         'label': 'Recevoir',
         'icon': Icons.south_west,
-        'route': '/transfer/nfc?method=nfc',
+        'onTap': 'receive',
       },
       {
         'label': 'Stats',
@@ -46,6 +47,10 @@ class ActionButtons extends StatelessWidget {
                 ),
                 child: IconButton(
                   onPressed: () {
+                    if (action['onTap'] == 'receive') {
+                      ChannelSelectionDialog.showForReceive(context);
+                      return;
+                    }
                     final route = action['route'] as String?;
                     if (route != null) {
                       if (route.startsWith('/')) {
