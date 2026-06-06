@@ -1,110 +1,57 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../../core/appTheme.dart';
-import '../providers/active_transfer_provider.dart';
-import '../providers/token_list_provider.dart';
 import '../widgets/action_buttons.dart';
-import '../widgets/home_header.dart';
-import '../widgets/token_balance_card.dart';
-import '../widgets/transaction_list.dart';
+import '../widgets/stats_badges.dart';
 
-class HomeScreen extends ConsumerWidget {
+/// Écran principal de l'application Narco intégrant les badges de statistiques
+/// et les boutons d'action sécurisés.
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tokensAsync = ref.watch(tokenListProvider);
-    final isTransferActive = ref.watch(activeTransferProvider);
-
-    return SafeArea(
-      bottom: false,
-      child: RefreshIndicator(
-        onRefresh: () => ref.refresh(tokenListProvider.future),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const HomeHeader(),
-              if (isTransferActive) _ActiveTransferBanner(),
-              const SizedBox(height: 8),
-              tokensAsync.when(
-                data: (tokens) => TokenBalanceCard(tokens: tokens),
-                loading: () => const TokenBalanceCard(tokens: []),
-                error: (_, _) => const TokenBalanceCard(tokens: []),
-              ),
-              const SizedBox(height: 8),
-              const ActionButtons(),
-              const TransactionList(),
-              const SizedBox(height: 24),
-            ],
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        title: const Text('Narco Wallet'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppTheme.textPrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () {},
           ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 10),
+            // Mission 2 : Affichage dynamique des statistiques (Envoyés/Reçus)
+            const StatsBadges(),
+            
+            const SizedBox(height: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Solde total', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+                  const SizedBox(height: 8),
+                  const Text('75,000 FCFA', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+            // Mission 2 : Boutons d'action incluant le lien vers l'historique
+            const ActionButtons(),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _ActiveTransferBanner extends StatefulWidget {
-  @override
-  State<_ActiveTransferBanner> createState() => _ActiveTransferBannerState();
-}
-
-class _ActiveTransferBannerState extends State<_ActiveTransferBanner>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.4, end: 1.0).animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _opacity,
-      builder: (context, child) {
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: const Color(0xFF2E2B24).withValues(alpha: _opacity.value * 0.9),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: AppTheme.tertiary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Transaction en cours...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/app_logger.dart';
@@ -9,7 +10,8 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
-  Future<Database> get database async {
+  Future<Database?> get database async {
+    if (kIsWeb) return null;
     if (_database != null) return _database!;
     _database = await _initDB(AppConstants.dbName);
     return _database!;
@@ -67,7 +69,7 @@ class DatabaseHelper {
   }
 
   Future<void> close() async {
-    final db = await instance.database;
-    db.close();
+    final db = _database;
+    if (db != null) await db.close();
   }
 }

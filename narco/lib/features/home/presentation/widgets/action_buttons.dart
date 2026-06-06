@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../../core/appTheme.dart';
 import '../../../token_transfer/presentation/widgets/channel_selection_dialog.dart';
 
@@ -10,71 +9,45 @@ class ActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> actions = [
-      {
-        'label': 'Créer',
-        'icon': Icons.add_circle_outline,
-        'route': '/create-token',
-      },
-      {
-        'label': 'Envoyer',
-        'icon': Icons.north_east,
-        'route': '/transfer',
-      },
-      {
-        'label': 'Recevoir',
-        'icon': Icons.south_west,
-        'onTap': 'receive',
-      },
-      {
-        'label': 'Stats',
-        'icon': Icons.query_stats_outlined,
-      },
+      {'label': 'Send', 'icon': Icons.north_east, 'route': '/transfer'},
+      {'label': 'Get', 'icon': Icons.south_west, 'onTap': 'receive'},
+      {'label': 'Collect', 'icon': Icons.account_balance_wallet_outlined, 'route': '/create-token'},
+      {'label': 'Stats', 'icon': Icons.bar_chart_rounded, 'route': '/history'},
     ];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: actions.map((action) {
           return Column(
             children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2E2B24),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  onPressed: () {
-                    if (action['onTap'] == 'receive') {
-                      ChannelSelectionDialog.showForReceive(context);
-                      return;
-                    }
-                    final route = action['route'] as String?;
-                    if (route != null) {
-                      if (route.startsWith('/')) {
-                        context.go(route);
-                      } else {
-                        context.goNamed(route);
-                      }
-                    }
-                  },
-                  icon: Icon(
-                    action['icon'] as IconData,
-                    color: Colors.white,
-                    size: 24,
+              GestureDetector(
+                onTap: () {
+                  if (action['onTap'] == 'receive') {
+                    ChannelSelectionDialog.showForReceive(context);
+                  } else if (action['route'] != null) {
+                    context.push(action['route']);
+                  }
+                },
+                child: Container(
+                  width: 65,
+                  height: 65,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.dark,
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(action['icon'] as IconData, color: Colors.white, size: 28),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 action['label'] as String,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
               ),
             ],
           );
