@@ -1,55 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/appTheme.dart';
+import '../providers/token_list_provider.dart';
 import '../widgets/action_buttons.dart';
-import '../widgets/stats_badges.dart';
+import '../widgets/home_header.dart';
+import '../widgets/token_balance_card.dart';
+import '../widgets/transaction_list.dart';
 
-/// Écran principal de l'application Narco intégrant les badges de statistiques
-/// et les boutons d'action sécurisés.
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokenListAsync = ref.watch(tokenListProvider);
+
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Narco Wallet'),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: AppTheme.textPrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-            // Mission 2 : Affichage dynamique des statistiques (Envoyés/Reçus)
-            const StatsBadges(),
-            
-            const SizedBox(height: 40),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Solde total', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-                  const SizedBox(height: 8),
-                  const Text('75,000 FCFA', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
-                ],
-              ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () => ref.refresh(tokenListProvider.future),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const HomeHeader(),
+                const SizedBox(height: 10),
+                
+                tokenListAsync.when(
+                  data: (tokens) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Solde Total Dynamique
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Solde total',
+                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${tokens.fold(0.0, (sum, t) => sum + t.valeur).toStringAsFixed(0)} FCFA',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      // Affichage des cartes de jetons (Design Premium)
+                      TokenBalanceCard(tokens: tokens),
+                    ],
+                  ),
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (e, _) => Center(child: Text('Erreur: $e')),
+                ),
+                
+                const ActionButtons(),
+                const SizedBox(height: 20),
+                const TransactionList(),
+              ],
             ),
-            const SizedBox(height: 40),
-            // Mission 2 : Boutons d'action incluant le lien vers l'historique
-            const ActionButtons(),
-          ],
+          ),
         ),
       ),
     );

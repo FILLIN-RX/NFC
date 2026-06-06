@@ -68,12 +68,11 @@ class TokenBalanceCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Text(
+              Text(
                 'Today\'s income from Club events',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppTheme.textPrimary,
-                  opacity: 0.7,
+                  color: AppTheme.textPrimary.withOpacity(0.7),
                 ),
               ),
               const SizedBox(height: 20),

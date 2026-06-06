@@ -3,14 +3,20 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
+  // Couleurs Narco Premium
   static const Color primary = Color(0xFFF5D161);
   static const Color background = Color(0xFFF7F5F0);
   static const Color dark = Color(0xFF1A1A1A);
+  static const Color tertiary = Color(0xFF1A1A1A); // Identique à dark pour la cohérence
   static const Color cardColor = Colors.white;
+  
   static const Color textPrimary = Color(0xFF1A1A1A);
   static const Color textSecondary = Color(0xFF757575);
+  
+  // Couleurs d'état
   static const Color success = Color(0xFF4CAF50);
   static const Color error = Color(0xFFE53935);
+  static const Color warning = Color(0xFFF59E0B);
 
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
@@ -18,15 +24,8 @@ class AppTheme {
     colorScheme: ColorScheme.light(
       primary: primary,
       secondary: dark,
+      tertiary: tertiary,
       surface: cardColor,
-      background: background,
-    ),
-    textTheme: const TextTheme(
-      displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: textPrimary),
-      headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textPrimary),
-      titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary),
-      bodyLarge: TextStyle(fontSize: 16, color: textPrimary),
-      bodyMedium: TextStyle(fontSize: 14, color: textSecondary),
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,

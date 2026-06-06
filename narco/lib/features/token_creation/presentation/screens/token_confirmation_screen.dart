@@ -11,7 +11,6 @@ class TokenConfirmationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // We fetch the latest token to show it on the confirmation screen.
     final futureTokens = ref.watch(tokenRepositoryProvider).getAllTokens();
 
     return Scaffold(
@@ -21,7 +20,7 @@ class TokenConfirmationScreen extends ConsumerWidget {
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.textPrimary,
         elevation: 0,
-        automaticallyImplyLeading: false, // Prevents back button, we want to force 'Done'
+        automaticallyImplyLeading: false,
       ),
       body: FutureBuilder(
         future: futureTokens,
@@ -31,7 +30,7 @@ class TokenConfirmationScreen extends ConsumerWidget {
           }
 
           if (snapshot.hasError || !snapshot.hasData) {
-            return Center(child: Text('Erreur: Impossible de charger le jeton. ${snapshot.error}'));
+            return Center(child: Text('Erreur: Impossible de charger le jeton.'));
           }
 
           final result = snapshot.data!;
@@ -41,61 +40,64 @@ class TokenConfirmationScreen extends ConsumerWidget {
                 return const Center(child: Text('Aucun jeton trouvé.'));
               }
 
-              // Assume the latest created is the first one since it's ordered by dateCreation DESC
               final latestToken = tokens.first;
 
-              return Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: AppTheme.success,
-                      size: 80,
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Félicitations !',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
+              return SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 20),
+                      const Icon(
+                        Icons.check_circle,
+                        color: AppTheme.success,
+                        size: 80,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Votre jeton a été créé et sauvegardé avec succès.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    TokenCard(token: latestToken),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.go('/');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Félicitations !',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
                         ),
-                        elevation: 0,
                       ),
-                      child: const Text(
-                        'Retour à l\'accueil',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Votre jeton a été créé et sauvegardé avec succès.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 40),
+                      TokenCard(token: latestToken),
+                      const SizedBox(height: 40),
+                      ElevatedButton(
+                        onPressed: () {
+                          context.go('/');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Retour à l\'accueil',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               );
             },

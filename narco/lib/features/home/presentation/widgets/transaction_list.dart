@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/appTheme.dart';
+import '../../../token_history/data/services/history_service.dart';
+import '../../../token_history/domain/models/transaction_record.dart';
 
-class TransactionList extends StatelessWidget {
+class TransactionList extends ConsumerWidget {
   const TransactionList({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
@@ -38,43 +42,46 @@ class TransactionList extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'April 26, 2023',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey,
-            ),
-          ),
           const SizedBox(height: 16),
-          _buildTransactionItem(
-            icon: Icons.credit_card,
-            iconBg: const Color(0xFFFFF8E1),
-            iconColor: const Color(0xFFB88E2F),
-            title: 'From Mastercard *0025\ncard',
-            amount: '1,000\n€',
-            isNew: true,
+          FutureBuilder<List<TransactionRecord>>(
+            future: HistoryService.instance.getTransactions(limit: 5),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              final transactions = snapshot.data ?? [];
+              
+              if (transactions.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('Aucune transaction récente', style: TextStyle(color: Colors.grey)),
+                );
+              }
+
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: transactions.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final tx = transactions[index];
+                  final isOutgoing = tx.type == TransactionType.outgoing;
+                  
+                  return _buildTransactionItem(
+                    icon: isOutgoing ? Icons.north_east : Icons.south_west,
+                    iconBg: isOutgoing ? const Color(0xFFFBE9E7) : const Color(0xFFE8F5E9),
+                    iconColor: isOutgoing ? AppTheme.error : AppTheme.success,
+                    title: tx.peerName ?? (isOutgoing ? 'Envoi Jeton' : 'Réception Jeton'),
+                    subtitle: '${DateFormat('dd MMM, HH:mm').format(tx.date)} • ${tx.method.name.toUpperCase()}',
+                    amount: '${isOutgoing ? "-" : "+"} ${tx.amount.toInt()} ${tx.currency}',
+                    amountColor: isOutgoing ? AppTheme.textPrimary : AppTheme.success,
+                  );
+                },
+              );
+            },
           ),
-          const SizedBox(height: 12),
-          _buildTransactionItem(
-            icon: Icons.shopping_bag_outlined,
-            iconBg: const Color(0xFFFBE9E7),
-            iconColor: const Color(0xFFD84315),
-            title: 'Amazon\nMarketplace',
-            subtitle: 'Shopping • 12:45 PM',
-            amount: '- 42.50\n€',
-          ),
-          const SizedBox(height: 12),
-          _buildTransactionItem(
-            icon: Icons.restaurant_menu_outlined,
-            iconBg: const Color(0xFFE8EAF6),
-            iconColor: const Color(0xFF3F51B5),
-            title: 'Le Bistrot\nGourmand',
-            subtitle: 'Dining • 8:20 PM',
-            amount: '- 85.00\n€',
-          ),
-          const SizedBox(height: 100), // Spacing for bottom bar
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -85,9 +92,9 @@ class TransactionList extends StatelessWidget {
     required Color iconBg,
     required Color iconColor,
     required String title,
-    String? subtitle,
+    required String subtitle,
     required String amount,
-    bool isNew = false,
+    Color? amountColor,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -116,40 +123,23 @@ class TransactionList extends StatelessWidget {
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimary,
-                    height: 1.2,
                   ),
                 ),
-                if (isNew) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'NEW',
-                      style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ] else if (subtitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ],
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
               ],
             ),
           ),
           Text(
             amount,
             textAlign: TextAlign.right,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w900,
-              color: AppTheme.textPrimary,
-              height: 1.1,
+              color: amountColor ?? AppTheme.textPrimary,
             ),
           ),
         ],
