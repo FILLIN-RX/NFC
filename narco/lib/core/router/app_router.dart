@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/token_creation/presentation/screens/create_token_screen.dart';
@@ -12,6 +13,7 @@ import '../widgets/main_shell.dart';
 
 class AppRouter {
   static const String splash = 'splash';
+  static const String login = 'login';
   static const String home = 'home';
   static const String createToken = 'create-token';
   static const String tokenConfirmation = 'token-confirmation';
@@ -26,6 +28,11 @@ class AppRouter {
         path: '/splash',
         name: splash,
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        name: login,
+        builder: (context, state) => const LoginScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

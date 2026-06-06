@@ -12,6 +12,7 @@ void main() async {
   try {
     await Hive.initFlutter();
     await Hive.openBox(AppConstants.hiveBoxName);
+    await Hive.openBox('user_profile');
     AppLogger.info('HIVE', 'Hive initialisé avec succès.');
 
     await DatabaseHelper.instance.database;

@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/services/user_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/result.dart';
 import '../../../home/presentation/providers/active_transfer_provider.dart';
@@ -18,6 +19,7 @@ enum TransferStatus {
   waiting,
   connected,
   transferring,
+  received,
   success,
   error,
 }
@@ -28,6 +30,7 @@ class TransferState {
   final String? error;
   final bool isReceiveMode;
   final String method;
+  final double? progress;
 
   const TransferState({
     this.status = TransferStatus.idle,
@@ -35,6 +38,7 @@ class TransferState {
     this.error,
     this.isReceiveMode = false,
     this.method = 'nfc',
+    this.progress,
   });
 
   bool get isBusy =>
@@ -50,6 +54,7 @@ class TransferState {
     Object? error = _keep,
     bool? isReceiveMode,
     String? method,
+    Object? progress = _keep,
   }) {
     return TransferState(
       status: status ?? this.status,
@@ -57,6 +62,7 @@ class TransferState {
       error: identical(error, _keep) ? this.error : error as String?,
       isReceiveMode: isReceiveMode ?? this.isReceiveMode,
       method: method ?? this.method,
+      progress: identical(progress, _keep) ? this.progress : progress as double?,
     );
   }
 }
@@ -81,11 +87,20 @@ class TransferViewModel extends _$TransferViewModel {
       return;
     }
 
+    if (token.isUsed) {
+      state = state.copyWith(
+        status: TransferStatus.error,
+        error: 'Ce jeton a déjà été transféré. Il ne peut pas être réutilisé.',
+      );
+      return;
+    }
+
     state = state.copyWith(
       token: token,
       isReceiveMode: false,
       status: TransferStatus.waiting,
       error: null,
+      progress: 0.0,
     );
     ref.read(activeTransferProvider.notifier).start();
 
@@ -97,10 +112,21 @@ class TransferViewModel extends _$TransferViewModel {
       case Success():
         await repository.updateTokenStatus(token.tokenId, 'transféré');
         _refreshWallet();
-        state = state.copyWith(status: TransferStatus.success, error: null);
+        state = state.copyWith(status: TransferStatus.success, error: null, progress: 1.0);
       case Failure(:final message):
-        state = state.copyWith(status: TransferStatus.error, error: message);
+        state = state.copyWith(status: TransferStatus.error, error: message, progress: null);
     }
+  }
+
+  Future<String?> _checkReceivedToken(Token token) async {
+    if (!token.verifyIntegrity()) {
+      return 'Jeton invalide ou falsifié : l\'empreinte numérique ne correspond pas.';
+    }
+    final alreadyReceived = await ref.read(userServiceProvider).isTokenAlreadyReceived(token.tokenId);
+    if (alreadyReceived) {
+      return 'Ce jeton a déjà été reçu. Opération annulée pour éviter la duplication.';
+    }
+    return null;
   }
 
   /// Reçoit un jeton via NFC (rôle lecteur ISO-DEP).
@@ -109,31 +135,66 @@ class TransferViewModel extends _$TransferViewModel {
       isReceiveMode: true,
       status: TransferStatus.waiting,
       error: null,
+      progress: 0.0,
     );
     ref.read(activeTransferProvider.notifier).start();
 
     final result = await ref.read(nfcServiceProvider).receiveToken(onStage: _onStage);
 
-    ref.read(activeTransferProvider.notifier).stop();
-
     switch (result) {
       case Success(:final data):
-        final received = data.copyWith(direction: 'incoming', statut: 'actif');
-        final saveResult = await ref.read(tokenRepositoryProvider).saveToken(received);
-        switch (saveResult) {
-          case Success():
-            _refreshWallet();
-            state = state.copyWith(
-              status: TransferStatus.success,
-              token: received,
-              error: null,
-            );
-          case Failure(:final message):
-            state = state.copyWith(status: TransferStatus.error, error: message);
+        final error = await _checkReceivedToken(data);
+        if (error != null) {
+          ref.read(activeTransferProvider.notifier).stop();
+          state = state.copyWith(status: TransferStatus.error, error: error, progress: null);
+        } else {
+          state = state.copyWith(
+            status: TransferStatus.received,
+            token: data.copyWith(direction: 'incoming', statut: 'actif'),
+            error: null,
+            progress: 1.0,
+          );
         }
       case Failure(:final message):
-        state = state.copyWith(status: TransferStatus.error, error: message);
+        ref.read(activeTransferProvider.notifier).stop();
+        state = state.copyWith(status: TransferStatus.error, error: message, progress: null);
     }
+  }
+
+  Future<void> acceptToken() async {
+    final token = state.token;
+    if (token == null) return;
+
+    ref.read(activeTransferProvider.notifier).start();
+    final saveResult = await ref.read(tokenRepositoryProvider).saveToken(token);
+    if (saveResult is Success) {
+      ref.read(userServiceProvider).markTokenReceived(token.tokenId);
+      _refreshWallet();
+      if (state.method == 'bluetooth') {
+        await ref.read(bluetoothServiceProvider).respondToTransfer(true);
+      }
+      ref.read(activeTransferProvider.notifier).stop();
+      state = state.copyWith(status: TransferStatus.success, progress: 1.0);
+    } else {
+      ref.read(activeTransferProvider.notifier).stop();
+      state = state.copyWith(
+        status: TransferStatus.error,
+        error: (saveResult as Failure).message,
+        progress: null,
+      );
+    }
+  }
+
+  Future<void> rejectToken() async {
+    if (state.method == 'bluetooth') {
+      await ref.read(bluetoothServiceProvider).respondToTransfer(false);
+    }
+    ref.read(activeTransferProvider.notifier).stop();
+    state = state.copyWith(
+      status: TransferStatus.error,
+      error: 'Transfert refusé.',
+      progress: null,
+    );
   }
 
   /// Envoie un jeton vers un appareil Bluetooth choisi (rôle client RFCOMM).
@@ -151,12 +212,21 @@ class TransferViewModel extends _$TransferViewModel {
       return;
     }
 
+    if (token.isUsed) {
+      state = state.copyWith(
+        status: TransferStatus.error,
+        error: 'Ce jeton a déjà été transféré. Il ne peut pas être réutilisé.',
+      );
+      return;
+    }
+
     state = state.copyWith(
       token: token,
       isReceiveMode: false,
       method: 'bluetooth',
       status: TransferStatus.connected,
       error: null,
+      progress: 0.0,
     );
     ref.read(activeTransferProvider.notifier).start();
 
@@ -169,9 +239,9 @@ class TransferViewModel extends _$TransferViewModel {
       case Success():
         await repository.updateTokenStatus(token.tokenId, 'transféré');
         _refreshWallet();
-        state = state.copyWith(status: TransferStatus.success, error: null);
+        state = state.copyWith(status: TransferStatus.success, error: null, progress: 1.0);
       case Failure(:final message):
-        state = state.copyWith(status: TransferStatus.error, error: message);
+        state = state.copyWith(status: TransferStatus.error, error: message, progress: null);
     }
   }
 
@@ -182,30 +252,30 @@ class TransferViewModel extends _$TransferViewModel {
       method: 'bluetooth',
       status: TransferStatus.waiting,
       error: null,
+      progress: 0.0,
     );
     ref.read(activeTransferProvider.notifier).start();
 
     final result = await ref.read(bluetoothServiceProvider).receiveToken(onStage: _onBtStage);
 
-    ref.read(activeTransferProvider.notifier).stop();
-
     switch (result) {
       case Success(:final data):
-        final received = data.copyWith(direction: 'incoming', statut: 'actif');
-        final saveResult = await ref.read(tokenRepositoryProvider).saveToken(received);
-        switch (saveResult) {
-          case Success():
-            _refreshWallet();
-            state = state.copyWith(
-              status: TransferStatus.success,
-              token: received,
-              error: null,
-            );
-          case Failure(:final message):
-            state = state.copyWith(status: TransferStatus.error, error: message);
+        final error = await _checkReceivedToken(data);
+        if (error != null) {
+          ref.read(activeTransferProvider.notifier).stop();
+          await ref.read(bluetoothServiceProvider).respondToTransfer(false);
+          state = state.copyWith(status: TransferStatus.error, error: error, progress: null);
+        } else {
+          state = state.copyWith(
+            status: TransferStatus.received,
+            token: data.copyWith(direction: 'incoming', statut: 'actif'),
+            error: null,
+            progress: 1.0,
+          );
         }
       case Failure(:final message):
-        state = state.copyWith(status: TransferStatus.error, error: message);
+        ref.read(activeTransferProvider.notifier).stop();
+        state = state.copyWith(status: TransferStatus.error, error: message, progress: null);
     }
   }
 
@@ -214,7 +284,7 @@ class TransferViewModel extends _$TransferViewModel {
     await ref.read(nfcServiceProvider).cancelSending();
     await ref.read(bluetoothServiceProvider).cancel();
     ref.read(activeTransferProvider.notifier).stop();
-    state = state.copyWith(status: TransferStatus.idle, error: null);
+    state = state.copyWith(status: TransferStatus.idle, error: null, progress: null);
   }
 
   /// Rafraîchit le portefeuille (accueil + liste transférable) après un transfert.
@@ -223,7 +293,7 @@ class TransferViewModel extends _$TransferViewModel {
     ref.invalidate(transferableTokensProvider);
   }
 
-  void _onBtStage(BtTransferStage stage) {
+  void _onBtStage(BtTransferStage stage, {double? progress}) {
     final mapped = switch (stage) {
       BtTransferStage.waiting => TransferStatus.waiting,
       BtTransferStage.connecting => TransferStatus.connected,
@@ -233,11 +303,11 @@ class TransferViewModel extends _$TransferViewModel {
     if (state.status == TransferStatus.success || state.status == TransferStatus.error) {
       return;
     }
-    AppLogger.bluetooth('Étape transfert : ${stage.name}');
-    state = state.copyWith(status: mapped);
+    AppLogger.bluetooth('Étape transfert : ${stage.name} ($progress)');
+    state = state.copyWith(status: mapped, progress: progress);
   }
 
-  void _onStage(NfcTransferStage stage) {
+  void _onStage(NfcTransferStage stage, {double? progress}) {
     final mapped = switch (stage) {
       NfcTransferStage.waiting => TransferStatus.waiting,
       NfcTransferStage.connected => TransferStatus.connected,
@@ -248,7 +318,7 @@ class TransferViewModel extends _$TransferViewModel {
     if (state.status == TransferStatus.success || state.status == TransferStatus.error) {
       return;
     }
-    AppLogger.nfc('Étape transfert : ${stage.name}');
-    state = state.copyWith(status: mapped);
+    AppLogger.nfc('Étape transfert : ${stage.name} ($progress)');
+    state = state.copyWith(status: mapped, progress: progress);
   }
 }

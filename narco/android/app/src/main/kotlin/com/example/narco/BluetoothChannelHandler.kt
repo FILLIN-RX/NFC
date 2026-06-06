@@ -38,6 +38,7 @@ class BluetoothChannelHandler(
     companion object {
         private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         private const val ACK: Int = 0x06
+        private const val NAK: Int = 0x15
         private const val SERVICE_NAME = "NarcoToken"
     }
 
@@ -49,6 +50,9 @@ class BluetoothChannelHandler(
 
     private var serverSocket: BluetoothServerSocket? = null
     private var serverThread: Thread? = null
+
+    private var pendingSocket: BluetoothSocket? = null
+    private var pendingOutputStream: OutputStream? = null
 
     private var discoveryReceiver: BroadcastReceiver? = null
 
@@ -91,6 +95,10 @@ class BluetoothChannelHandler(
                 stopServer()
                 result.success(true)
             }
+            "respondToTransfer" -> {
+                val accept = call.argument<Boolean>("accept") ?: false
+                respondToTransfer(accept, result)
+            }
             else -> result.notImplemented()
         }
     }
@@ -114,11 +122,23 @@ class BluetoothChannelHandler(
     private fun connectAndSend(address: String, payload: ByteArray, result: MethodChannel.Result) {
         Thread {
             var socket: BluetoothSocket? = null
+            val timeoutRunnable = Runnable {
+                try {
+                    socket?.close()
+                } catch (_: Exception) {}
+            }
             try {
                 adapter?.cancelDiscovery()
                 val device: BluetoothDevice = adapter!!.getRemoteDevice(address)
                 socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
+                
+                // Programmation du timeout de connexion (6 secondes)
+                mainHandler.postDelayed(timeoutRunnable, 6000L)
+                
                 socket.connect()
+                
+                // Connexion réussie, on annule le timeout
+                mainHandler.removeCallbacks(timeoutRunnable)
 
                 val out: OutputStream = socket.outputStream
                 val input: InputStream = socket.inputStream
@@ -138,13 +158,14 @@ class BluetoothChannelHandler(
                 socket.close()
 
                 mainHandler.post {
-                    if (ack == ACK) {
-                        result.success(true)
-                    } else {
-                        result.error("NO_ACK", "Accusé de réception invalide.", null)
+                    when (ack) {
+                        ACK -> result.success(true)
+                        NAK -> result.error("REJECTED", "Transfert refusé par le récepteur.", null)
+                        else -> result.error("NO_ACK", "Accusé de réception invalide.", null)
                     }
                 }
             } catch (e: Exception) {
+                mainHandler.removeCallbacks(timeoutRunnable)
                 try { socket?.close() } catch (_: Exception) {}
                 mainHandler.post { result.error("BT_SEND", e.message ?: "Échec de l'envoi.", null) }
             }
@@ -165,11 +186,10 @@ class BluetoothChannelHandler(
         }
 
         serverThread = Thread {
-            var socket: BluetoothSocket? = null
             try {
-                socket = serverSocket?.accept()
-                val input: InputStream = socket!!.inputStream
-                val out: OutputStream = socket.outputStream
+                pendingSocket = serverSocket?.accept()
+                val input: InputStream = pendingSocket!!.inputStream
+                pendingOutputStream = pendingSocket.outputStream
 
                 val header = readFully(input, 4)
                 val length = ((header[0].toInt() and 0xFF) shl 24) or
@@ -179,14 +199,11 @@ class BluetoothChannelHandler(
 
                 val payload = readFully(input, length)
 
-                out.write(ACK)
-                out.flush()
-
                 emit(mapOf("event" to "received", "payload" to payload))
-                socket.close()
             } catch (e: Exception) {
-                try { socket?.close() } catch (_: Exception) {}
-                // Fermeture volontaire (stopServer) -> pas d'erreur remontée.
+                try { pendingSocket?.close() } catch (_: Exception) {}
+                pendingSocket = null
+                pendingOutputStream = null
                 if (serverSocket != null) {
                     emit(mapOf("event" to "error", "message" to (e.message ?: "Réception interrompue.")))
                 }
@@ -252,5 +269,29 @@ class BluetoothChannelHandler(
             try { context.unregisterReceiver(it) } catch (_: Exception) {}
         }
         discoveryReceiver = null
+    }
+
+    private fun respondToTransfer(accept: Boolean, result: MethodChannel.Result) {
+        try {
+            val out = pendingOutputStream
+            if (out == null) {
+                result.error("NO_PENDING", "Aucun transfert en attente.", null)
+                return
+            }
+            out.write(if (accept) ACK else NAK)
+            out.flush()
+            pendingSocket?.close()
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("RESPOND_FAILED", e.message, null)
+        } finally {
+            pendingSocket = null
+            pendingOutputStream = null
+        }
+    }
+
+    fun cleanup() {
+        stopServer()
+        stopDiscovery()
     }
 }

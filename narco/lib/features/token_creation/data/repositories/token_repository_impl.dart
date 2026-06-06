@@ -22,7 +22,13 @@ class TokenRepositoryImpl implements TokenRepository {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
-      await _cacheBox.put(token.tokenId, token.toJson());
+      try {
+        await _cacheBox.put(token.tokenId, token.toJson());
+      } catch (e) {
+        await db.delete('tokens', where: 'tokenId = ?', whereArgs: [token.tokenId]);
+        rethrow;
+      }
+
       AppLogger.info('REPOSITORY', 'Jeton ${token.tokenId} sauvegardé (SQLite + Hive).');
       return const Success(null);
     } catch (e) {
@@ -77,6 +83,8 @@ class TokenRepositoryImpl implements TokenRepository {
     try {
       final db = await _dbHelper.database;
 
+      final oldStatus = await _readOldStatus(db, tokenId);
+
       await db.update(
         'tokens',
         {'statut': newStatus},
@@ -84,10 +92,22 @@ class TokenRepositoryImpl implements TokenRepository {
         whereArgs: [tokenId],
       );
 
-      if (_cacheBox.containsKey(tokenId)) {
-        final data = Map<String, dynamic>.from(_cacheBox.get(tokenId));
-        data['statut'] = newStatus;
-        await _cacheBox.put(tokenId, data);
+      try {
+        if (_cacheBox.containsKey(tokenId)) {
+          final data = Map<String, dynamic>.from(_cacheBox.get(tokenId));
+          data['statut'] = newStatus;
+          await _cacheBox.put(tokenId, data);
+        }
+      } catch (e) {
+        if (oldStatus != null) {
+          await db.update(
+            'tokens',
+            {'statut': oldStatus},
+            where: 'tokenId = ?',
+            whereArgs: [tokenId],
+          );
+        }
+        rethrow;
       }
 
       AppLogger.info('REPOSITORY', 'Statut du jeton $tokenId mis à jour vers: $newStatus');
@@ -96,6 +116,16 @@ class TokenRepositoryImpl implements TokenRepository {
       AppLogger.error('REPOSITORY', 'Erreur de mise à jour du statut', e);
       return Failure('Échec de la mise à jour du statut.', error: e);
     }
+  }
+
+  Future<String?> _readOldStatus(Database db, String tokenId) async {
+    final rows = await db.query(
+      'tokens',
+      columns: ['statut'],
+      where: 'tokenId = ?',
+      whereArgs: [tokenId],
+    );
+    return rows.isNotEmpty ? rows.first['statut'] as String? : null;
   }
 
   @override

@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../../../core/appTheme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class HomeHeader extends StatelessWidget {
+import '../../../../core/appTheme.dart';
+import '../../../../core/services/user_service.dart';
+
+class HomeHeader extends ConsumerWidget {
   const HomeHeader({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userName = ref.watch(userServiceProvider).getUserName() ?? '';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Row(
@@ -21,30 +26,45 @@ class HomeHeader extends StatelessWidget {
                   color: AppTheme.tertiary,
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.security,
-                    color: AppTheme.primary,
-                    size: 22,
+                child: Center(
+                  child: Text(
+                    userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      color: AppTheme.primary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              // App Name
-              Text(
-                'Narco',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Narco',
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 22,
                       color: AppTheme.textPrimary,
                     ),
+                  ),
+                  if (userName.isNotEmpty)
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 10),
               // Hub Dropdown Chip
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFECE5), // Slightly darker cream for contrast
+                  color: const Color(0xFFEFECE5),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
