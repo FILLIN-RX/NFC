@@ -4,6 +4,8 @@ import '../../features/token_history/presentation/screens/history_screen.dart';
 import '../../features/token_creation/presentation/screens/create_token_screen.dart';
 import '../../features/token_creation/presentation/screens/token_confirmation_screen.dart';
 import '../../features/token_transfer/presentation/screens/transfer_screen.dart';
+import '../../features/token_transfer/presentation/screens/transfer_selection_screen.dart';
+import '../../features/splash/presentation/screens/login_screen.dart';
 
 class AppRouter {
   static final router = GoRouter(
@@ -13,6 +15,11 @@ class AppRouter {
         path: '/',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: '/history',
@@ -28,6 +35,11 @@ class AppRouter {
         path: '/token-confirmation',
         name: 'token-confirmation',
         builder: (context, state) => const TokenConfirmationScreen(),
+      ),
+      GoRoute(
+        path: '/transfer-selection',
+        name: 'transfer-selection',
+        builder: (context, state) => const TransferSelectionScreen(),
       ),
       GoRoute(
         path: '/transfer',

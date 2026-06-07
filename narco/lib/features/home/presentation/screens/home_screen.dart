@@ -25,50 +25,20 @@ class HomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const HomeHeader(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 20),
                 
                 tokenListAsync.when(
-                  data: (tokens) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Solde Total Dynamique
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Solde total',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${tokens.fold(0.0, (sum, t) => sum + t.valeur).toStringAsFixed(0)} FCFA',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      // Affichage des cartes de jetons (Design Premium)
-                      TokenBalanceCard(tokens: tokens),
-                    ],
-                  ),
+                  data: (tokens) => TokenBalanceCard(tokens: tokens),
                   loading: () => const Center(
                     child: Padding(
-                      padding: EdgeInsets.all(20.0),
-                      child: CircularProgressIndicator(),
+                      padding: EdgeInsets.all(40.0),
+                      child: CircularProgressIndicator(color: AppTheme.dark),
                     ),
                   ),
                   error: (e, _) => Center(child: Text('Erreur: $e')),
                 ),
                 
                 const ActionButtons(),
-                const SizedBox(height: 20),
                 const TransactionList(),
               ],
             ),
