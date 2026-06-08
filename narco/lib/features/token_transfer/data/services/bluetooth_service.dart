@@ -110,7 +110,7 @@ class BluetoothService {
   Future<Result<void>> sendToken(
     Token token,
     String address, {
-    void Function(BtTransferStage stage)? onStage,
+    void Function(BtTransferStage stage, {double? progress})? onStage,
     int retries = AppConstants.bluetoothMaxRetry,
   }) async {
     if (!await ensurePermissions()) {
@@ -125,19 +125,22 @@ class BluetoothService {
 
     for (var attempt = 1; attempt <= retries; attempt++) {
       try {
-        onStage?.call(BtTransferStage.connecting);
+        onStage?.call(BtTransferStage.connecting, progress: 0.0);
         AppLogger.bluetooth('Envoi vers $address (tentative $attempt/$retries)');
         final ok = await _method.invokeMethod<bool>('connectAndSend', {
           'address': address,
           'payload': payload,
         });
         if (ok == true) {
-          onStage?.call(BtTransferStage.completed);
+          onStage?.call(BtTransferStage.completed, progress: 1.0);
           AppLogger.bluetooth('Jeton ${token.tokenId} transmis.');
           return const Success(null);
         }
         lastError = 'Aucun accusé de réception.';
       } on PlatformException catch (e) {
+        if (e.code == 'REJECTED') {
+          return Failure('Transfert refusé par le récepteur.');
+        }
         lastError = e.message;
         AppLogger.bluetooth('Tentative $attempt échouée : ${e.message}');
       }
@@ -157,7 +160,7 @@ class BluetoothService {
   // ---------------------------------------------------------------------------
 
   Future<Result<Token>> receiveToken({
-    void Function(BtTransferStage stage)? onStage,
+    void Function(BtTransferStage stage, {double? progress})? onStage,
     Duration timeout = _defaultTimeout,
   }) async {
     if (!await ensurePermissions()) {
@@ -175,9 +178,11 @@ class BluetoothService {
       if (completer.isCompleted) return;
       timer?.cancel();
       await subscription?.cancel();
-      try {
-        await _method.invokeMethod('stopServer');
-      } catch (_) {}
+      if (result is Failure) {
+        try {
+          await _method.invokeMethod('stopServer');
+        } catch (_) {}
+      }
       completer.complete(result);
     }
 
@@ -187,12 +192,13 @@ class BluetoothService {
       try {
         final map = Map<String, dynamic>.from(event as Map);
         final bytes = map['payload'] as Uint8List;
-        onStage?.call(BtTransferStage.transferring);
+        onStage?.call(BtTransferStage.transferring, progress: 0.5);
         final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
         final token = Token.fromJson(json);
-        onStage?.call(BtTransferStage.completed);
-        AppLogger.bluetooth('Jeton ${token.tokenId} reçu.');
-        await finish(Success(token));
+        onStage?.call(BtTransferStage.completed, progress: 1.0);
+        AppLogger.bluetooth('Jeton ${token.tokenId} reçu, en attente de confirmation.');
+        timer?.cancel();
+        completer.complete(Success(token));
       } catch (e) {
         await finish(Failure('Jeton reçu invalide ou corrompu.', error: e));
       }
@@ -205,12 +211,24 @@ class BluetoothService {
 
     try {
       await _method.invokeMethod('startServer');
-      onStage?.call(BtTransferStage.waiting);
+      onStage?.call(BtTransferStage.waiting, progress: 0.0);
     } on PlatformException catch (e) {
       await finish(Failure('Impossible de démarrer la réception Bluetooth.', error: e));
     }
 
     return completer.future;
+  }
+
+  Future<void> respondToTransfer(bool accept) async {
+    try {
+      await _method.invokeMethod('respondToTransfer', {'accept': accept});
+    } catch (e) {
+      AppLogger.bluetooth('Erreur réponse transfert : $e');
+    } finally {
+      try {
+        await _method.invokeMethod('stopServer');
+      } catch (_) {}
+    }
   }
 
   Future<void> cancel() async {

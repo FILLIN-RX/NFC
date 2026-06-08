@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'token_type.dart';
@@ -35,6 +38,18 @@ abstract class Token with _$Token {
 
   bool get isOutgoing => direction == 'outgoing';
   bool get isIncoming => direction == 'incoming';
+
+  bool get isUsed => statut == 'transféré';
+
+  bool verifyIntegrity() {
+    final rawData = '$tokenId|${type.code}|$valeur|$proprietaire|$dateCreation';
+    final expectedHash = sha256.convert(utf8.encode(rawData)).toString();
+    if (expectedHash != hash) return false;
+    final key = utf8.encode('narco-secret-key');
+    final expectedSignature =
+        Hmac(sha256, key).convert(utf8.encode(rawData)).toString();
+    return expectedSignature == signature;
+  }
 
   factory Token.fromJson(Map<String, dynamic> json) => _$TokenFromJson(json);
 }

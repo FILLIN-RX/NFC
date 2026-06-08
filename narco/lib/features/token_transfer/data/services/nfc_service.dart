@@ -63,7 +63,7 @@ class NfcService {
   // ---------------------------------------------------------------------------
 
   Future<Result<Token>> receiveToken({
-    void Function(NfcTransferStage stage)? onStage,
+    void Function(NfcTransferStage stage, {double? progress})? onStage,
     Duration timeout = _defaultTimeout,
   }) async {
     final availabilityResult = await _ensureAvailable();
@@ -98,7 +98,7 @@ class NfcService {
             return;
           }
           processing = true;
-          onStage?.call(NfcTransferStage.connected);
+          onStage?.call(NfcTransferStage.connected, progress: 0.0);
 
           final isoDep = IsoDepAndroid.from(tag);
           if (isoDep == null) {
@@ -107,10 +107,12 @@ class NfcService {
           }
 
           try {
-            onStage?.call(NfcTransferStage.transferring);
-            final bytes = await _readPayload(isoDep);
+            onStage?.call(NfcTransferStage.transferring, progress: 0.0);
+            final bytes = await _readPayload(isoDep, onProgress: (progress) {
+              onStage?.call(NfcTransferStage.transferring, progress: progress);
+            });
             final token = NdefEncoder.decode(bytes);
-            onStage?.call(NfcTransferStage.completed);
+            onStage?.call(NfcTransferStage.completed, progress: 1.0);
             AppLogger.nfc('Réception : jeton ${token.tokenId} reçu.');
             await finish(Success(token));
           } on FormatException catch (e) {
@@ -120,7 +122,7 @@ class NfcService {
           }
         },
       );
-      onStage?.call(NfcTransferStage.waiting);
+      onStage?.call(NfcTransferStage.waiting, progress: 0.0);
     } catch (e) {
       await finish(Failure('Impossible de démarrer la session NFC.', error: e));
     }
@@ -128,7 +130,10 @@ class NfcService {
     return completer.future;
   }
 
-  Future<Uint8List> _readPayload(IsoDepAndroid isoDep) async {
+  Future<Uint8List> _readPayload(
+    IsoDepAndroid isoDep, {
+    void Function(double progress)? onProgress,
+  }) async {
     final selectResponse = await isoDep.transceive(_buildSelectApdu());
     _ensureStatusOk(selectResponse);
     if (selectResponse.length < 4) {
@@ -156,6 +161,7 @@ class NfcService {
       if (data.isEmpty) break;
       builder.add(data);
       offset += data.length;
+      onProgress?.call(offset / total);
     }
     return builder.toBytes();
   }
@@ -166,7 +172,7 @@ class NfcService {
 
   Future<Result<void>> sendToken(
     Token token, {
-    void Function(NfcTransferStage stage)? onStage,
+    void Function(NfcTransferStage stage, {double? progress})? onStage,
     Duration timeout = _defaultTimeout,
   }) async {
     final availabilityResult = await _ensureAvailable();
@@ -192,9 +198,11 @@ class NfcService {
         final map = Map<String, dynamic>.from(event as Map);
         switch (map['event']) {
           case 'progress':
-            onStage?.call(NfcTransferStage.transferring);
+            final served = map['served'] as int? ?? 0;
+            final total = map['total'] as int? ?? 1;
+            onStage?.call(NfcTransferStage.transferring, progress: served / total);
           case 'completed':
-            onStage?.call(NfcTransferStage.completed);
+            onStage?.call(NfcTransferStage.completed, progress: 1.0);
             AppLogger.nfc('Émission : jeton ${token.tokenId} transmis.');
             finish(const Success(null));
         }
@@ -209,7 +217,7 @@ class NfcService {
 
     try {
       await _method.invokeMethod('startEmulation', {'payload': payload});
-      onStage?.call(NfcTransferStage.waiting);
+      onStage?.call(NfcTransferStage.waiting, progress: 0.0);
     } on PlatformException catch (e) {
       await finish(Failure('Impossible de démarrer l\'émulation NFC.', error: e));
     }
@@ -222,6 +230,15 @@ class NfcService {
     try {
       await _method.invokeMethod('stopEmulation');
     } catch (_) {}
+  }
+
+  /// Ouvre les paramètres NFC du système.
+  Future<void> openNfcSettings() async {
+    try {
+      await _method.invokeMethod('openNfcSettings');
+    } catch (e) {
+      AppLogger.nfc('Impossible d\'ouvrir les paramètres NFC: $e');
+    }
   }
 
   // ---------------------------------------------------------------------------

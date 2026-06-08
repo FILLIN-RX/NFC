@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/appTheme.dart';
 import '../../../token_creation/presentation/widgets/token_card.dart';
 import '../../data/services/bluetooth_service.dart';
+import '../../data/services/nfc_service.dart';
 import '../providers/transfer_vm.dart';
 import '../widgets/bt_device_list.dart';
 import '../widgets/nfc_animation.dart';
@@ -62,6 +64,14 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
           previous?.status != TransferStatus.error) {
         _showErrorDialog(next.error ?? 'Une erreur est survenue.');
       }
+      if (next.status == TransferStatus.connected &&
+          previous?.status != TransferStatus.connected) {
+        HapticFeedback.mediumImpact();
+      }
+      if (next.status == TransferStatus.success &&
+          previous?.status != TransferStatus.success) {
+        HapticFeedback.vibrate();
+      }
     });
 
     final state = ref.watch(transferViewModelProvider);
@@ -97,6 +107,8 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
         return _buildSuccess(state);
       case TransferStatus.error:
         return _buildError(state);
+      case TransferStatus.received:
+        return _buildConfirmation(state);
       case TransferStatus.idle:
       case TransferStatus.waiting:
       case TransferStatus.connected:
@@ -127,6 +139,33 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
           style: const TextStyle(color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 16),
+        if (state.progress != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: state.progress,
+                    minHeight: 12,
+                    backgroundColor: Colors.white,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${(state.progress! * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
         if (state.token != null) TokenCard(token: state.token!, compact: true),
         const Spacer(),
         OutlinedButton(
@@ -135,6 +174,71 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
             if (mounted) context.go('/');
           },
           child: const Text('Annuler'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfirmation(TransferState state) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.pending_actions, color: AppTheme.primary, size: 80),
+        const SizedBox(height: 24),
+        const Text(
+          'Jeton reçu',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Voulez-vous accepter ce jeton ?',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppTheme.textSecondary),
+        ),
+        const SizedBox(height: 32),
+        if (state.token != null) TokenCard(token: state.token!),
+        const SizedBox(height: 32),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => ref.read(transferViewModelProvider.notifier).rejectToken(),
+                icon: const Icon(Icons.close, color: AppTheme.error),
+                label: const Text('Refuser'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.error,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  side: const BorderSide(color: AppTheme.error),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => ref.read(transferViewModelProvider.notifier).acceptToken(),
+                icon: const Icon(Icons.check),
+                label: const Text('Accepter'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -186,16 +290,22 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
   }
 
   Widget _buildError(TransferState state) {
+    final isNfcDisabled = state.error?.contains('NFC est désactivé') ?? false;
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.error_outline, color: AppTheme.error, size: 80),
+        Icon(
+          isNfcDisabled ? Icons.nfc : Icons.error_outline,
+          color: AppTheme.error,
+          size: 80,
+        ),
         const SizedBox(height: 24),
-        const Text(
-          'Transfert échoué',
+        Text(
+          isNfcDisabled ? 'NFC désactivé' : 'Transfert échoué',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: AppTheme.textPrimary,
@@ -208,20 +318,34 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
           style: const TextStyle(color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 32),
-        ElevatedButton(
-          onPressed: _start,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primary,
-            foregroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 0,
+        if (isNfcDisabled)
+          ElevatedButton.icon(
+            onPressed: () => ref.read(nfcServiceProvider).openNfcSettings(),
+            icon: const Icon(Icons.settings),
+            label: const Text('Activer le NFC dans les paramètres'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
           ),
-          child: const Text(
-            'Réessayer',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        if (!isNfcDisabled)
+          ElevatedButton(
+            onPressed: _start,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Réessayer',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
-        ),
         const SizedBox(height: 12),
         OutlinedButton(
           onPressed: () => context.go('/'),

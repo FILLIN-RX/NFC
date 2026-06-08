@@ -41,7 +41,7 @@ final class TransferViewModelProvider
   }
 }
 
-String _$transferViewModelHash() => r'7ff63ced22f88bc4ef04d2a332bc76cd2f55fdef';
+String _$transferViewModelHash() => r'553d6f659225389aceae3755402893f4a4882661';
 
 abstract class _$TransferViewModel extends $Notifier<TransferState> {
   TransferState build();

@@ -57,6 +57,15 @@ class MainActivity : FlutterActivity() {
                     NarcoHostApduService.reset()
                     result.success(true)
                 }
+                "openNfcSettings" -> {
+                    try {
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_NFC_SETTINGS)
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("OPEN_SETTINGS_FAILED", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -72,5 +81,10 @@ class MainActivity : FlutterActivity() {
                 }
             }
         )
+    }
+
+    override fun onDestroy() {
+        bluetoothHandler?.cleanup()
+        super.onDestroy()
     }
 }
