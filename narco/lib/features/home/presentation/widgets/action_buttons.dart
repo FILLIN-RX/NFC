@@ -9,7 +9,7 @@ class ActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> actions = [
-      {'label': 'Envoyer', 'icon': Icons.north_east, 'route': '/transfer-selection'},
+      {'label': 'Envoyer', 'icon': Icons.north_east, 'route': '/transfer'},
       {'label': 'Recevoir', 'icon': Icons.south_west, 'onTap': 'receive'},
       {'label': 'Collecter', 'icon': Icons.account_balance_wallet_outlined, 'route': '/create-token'},
       {'label': 'Stats', 'icon': Icons.bar_chart_rounded, 'route': '/history'},

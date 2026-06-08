@@ -188,18 +188,20 @@ class BluetoothChannelHandler(
         serverThread = Thread {
             try {
                 pendingSocket = serverSocket?.accept()
-                val input: InputStream = pendingSocket!!.inputStream
-                pendingOutputStream = pendingSocket.outputStream
+                pendingSocket?.let { socket ->
+                    val input: InputStream = socket.inputStream
+                    pendingOutputStream = socket.outputStream
 
-                val header = readFully(input, 4)
-                val length = ((header[0].toInt() and 0xFF) shl 24) or
-                    ((header[1].toInt() and 0xFF) shl 16) or
-                    ((header[2].toInt() and 0xFF) shl 8) or
-                    (header[3].toInt() and 0xFF)
+                    val header = readFully(input, 4)
+                    val length = ((header[0].toInt() and 0xFF) shl 24) or
+                        ((header[1].toInt() and 0xFF) shl 16) or
+                        ((header[2].toInt() and 0xFF) shl 8) or
+                        (header[3].toInt() and 0xFF)
 
-                val payload = readFully(input, length)
+                    val payload = readFully(input, length)
 
-                emit(mapOf("event" to "received", "payload" to payload))
+                    emit(mapOf("event" to "received", "payload" to payload))
+                }
             } catch (e: Exception) {
                 try { pendingSocket?.close() } catch (_: Exception) {}
                 pendingSocket = null
