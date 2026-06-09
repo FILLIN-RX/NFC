@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/appTheme.dart';
+import '../../../../core/services/feedback_service.dart';
 import '../../../../core/services/user_service.dart';
+import '../../../../core/widgets/premium_step_indicator.dart';
 import '../providers/token_creation_vm.dart';
 import '../widgets/token_type_config.dart';
 
@@ -38,8 +40,12 @@ class _CreateTokenScreenState extends ConsumerState<CreateTokenScreen> {
   }
 
   void _goNext() {
+    FeedbackService.instance.triggerLight();
     if (_currentStep < 2) {
-      _pageController.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOutCubic);
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeInOutCubic,
+      );
     } else {
       ref.read(tokenCreationViewModelProvider.notifier).createToken();
     }
@@ -47,7 +53,11 @@ class _CreateTokenScreenState extends ConsumerState<CreateTokenScreen> {
 
   void _goBack() {
     if (_currentStep > 0) {
-      _pageController.previousPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOutCubic);
+      FeedbackService.instance.triggerLight();
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeInOutCubic,
+      );
     }
   }
 
@@ -70,38 +80,34 @@ class _CreateTokenScreenState extends ConsumerState<CreateTokenScreen> {
 
     ref.listen<TokenCreationState>(tokenCreationViewModelProvider, (prev, next) {
       if (next.isSuccess && (prev == null || !prev.isSuccess)) {
+        FeedbackService.instance.triggerSuccess();
         context.pushReplacement('/token-confirmation');
       }
     });
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Créer un jeton'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _currentStep > 0 ? _goBack : () => context.pop(),
-        ),
-      ),
       body: SafeArea(
         child: Column(
           children: [
+            // ── Custom header ───────────────────────────────────────────
+            _Header(
+              step: _currentStep,
+              onBack: _currentStep > 0 ? _goBack : () => context.pop(),
+            ),
+
+            const SizedBox(height: 4),
+
+            // ── Animated step indicator ─────────────────────────────────
+            PremiumStepIndicator(currentStep: _currentStep),
+
             const SizedBox(height: 8),
-            _StepIndicator(step: _currentStep),
-            const SizedBox(height: 8),
+
+            // ── Error banner ────────────────────────────────────────────
             if (vm.error != null)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(vm.error!, style: const TextStyle(color: AppTheme.error, fontSize: 13)),
-              ),
+              _ErrorBanner(message: vm.error!),
+
+            // ── Step pages ──────────────────────────────────────────────
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -114,31 +120,12 @@ class _CreateTokenScreenState extends ConsumerState<CreateTokenScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: vm.isSubmitting ? null : _goNext,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: Colors.black,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                  ),
-                  child: vm.isSubmitting
-                      ? const SizedBox(
-                          height: 22, width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                        )
-                      : Text(
-                          _buttonLabel,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                ),
-              ),
+
+            // ── CTA button ──────────────────────────────────────────────
+            _CtaButton(
+              label: _buttonLabel,
+              isLoading: vm.isSubmitting,
+              onPressed: vm.isSubmitting ? null : _goNext,
             ),
           ],
         ),
@@ -147,39 +134,130 @@ class _CreateTokenScreenState extends ConsumerState<CreateTokenScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step indicator
-// ---------------------------------------------------------------------------
+// ─── Header ──────────────────────────────────────────────────────────────────
 
-class _StepIndicator extends StatelessWidget {
+class _Header extends StatelessWidget {
   final int step;
-  const _StepIndicator({required this.step});
+  final VoidCallback onBack;
+  const _Header({required this.step, required this.onBack});
+
+  static const _titles = ['Type de jeton', 'Valeur', 'Aperçu'];
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (i) {
-        final isActive = i == step;
-        final isDone = i < step;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 5),
-          width: isActive ? 32 : 8,
-          height: 8,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: isDone ? AppTheme.primary : isActive ? AppTheme.primary : Colors.grey.shade300,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 24, 0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            color: AppTheme.textPrimary,
+            onPressed: onBack,
           ),
-        );
-      }),
+          const SizedBox(width: 4),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Text(
+              _titles[step],
+              key: ValueKey(step),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step 1: Type Selection (Bento Grid)
-// ---------------------------------------------------------------------------
+// ─── Error Banner ─────────────────────────────────────────────────────────────
+
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.error.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, color: AppTheme.error, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: AppTheme.error, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── CTA Button ──────────────────────────────────────────────────────────────
+
+class _CtaButton extends StatelessWidget {
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+  const _CtaButton({required this.label, required this.isLoading, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: SizedBox(
+        width: double.infinity,
+        height: 58,
+        child: ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.black,
+            disabledBackgroundColor: const Color(0xFFE5E7EB),
+            disabledForegroundColor: const Color(0xFF9CA3AF),
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.black,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Step 1: Type Selection ───────────────────────────────────────────────────
 
 class _StepTypeSelection extends StatelessWidget {
   final TokenCreationState vm;
@@ -190,32 +268,33 @@ class _StepTypeSelection extends StatelessWidget {
   Widget build(BuildContext context) {
     final configs = TokenTypeConfig.all;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          const Text(
-            'Type de jeton',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Choisissez une catégorie',
-            style: TextStyle(fontSize: 15, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: GridView.count(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Choisissez une catégorie',
+              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
               crossAxisCount: 2,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: 1.1,
+              childAspectRatio: 1.05,
+              shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              children: configs.map((c) => _TypeCard(config: c, isSelected: vm.tokenType == c.type, vm: vm, ref: ref)).toList(),
+              children: configs
+                  .map((c) => _TypeCard(
+                        config: c,
+                        isSelected: vm.tokenType == c.type,
+                        ref: ref,
+                      ))
+                  .toList(),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -224,15 +303,19 @@ class _StepTypeSelection extends StatelessWidget {
 class _TypeCard extends StatefulWidget {
   final TokenTypeConfig config;
   final bool isSelected;
-  final TokenCreationState vm;
   final WidgetRef ref;
-  const _TypeCard({required this.config, required this.isSelected, required this.vm, required this.ref});
+  const _TypeCard({
+    required this.config,
+    required this.isSelected,
+    required this.ref,
+  });
 
   @override
   State<_TypeCard> createState() => _TypeCardState();
 }
 
-class _TypeCardState extends State<_TypeCard> with SingleTickerProviderStateMixin {
+class _TypeCardState extends State<_TypeCard>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _animController;
   late final Animation<double> _scale;
 
@@ -241,7 +324,7 @@ class _TypeCardState extends State<_TypeCard> with SingleTickerProviderStateMixi
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 380),
     );
     _scale = CurvedAnimation(parent: _animController, curve: Curves.elasticOut);
     if (widget.isSelected) _animController.value = 1;
@@ -268,60 +351,94 @@ class _TypeCardState extends State<_TypeCard> with SingleTickerProviderStateMixi
     final c = widget.config;
     return AnimatedBuilder(
       animation: _scale,
-      builder: (context, child) {
-        final scale = 0.92 + _scale.value * 0.08;
-        return Transform.scale(
-          scale: scale,
-          child: child,
-        );
-      },
+      builder: (context, child) => Transform.scale(
+        scale: 0.93 + _scale.value * 0.07,
+        child: child,
+      ),
       child: GestureDetector(
         onTap: () {
+          FeedbackService.instance.triggerLight();
           widget.ref.read(tokenCreationViewModelProvider.notifier).setTokenType(c.type);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           decoration: BoxDecoration(
-            color: widget.isSelected ? c.color.withValues(alpha: 0.12) : Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            color: widget.isSelected
+                ? c.color.withValues(alpha: 0.10)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: widget.isSelected ? c.color : Colors.grey.shade200,
+              color: widget.isSelected ? c.color : const Color(0xFFE5E7EB),
               width: widget.isSelected ? 2 : 1,
             ),
+            boxShadow: widget.isSelected
+                ? [
+                    BoxShadow(
+                      color: c.color.withValues(alpha: 0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(c.icon, color: c.color, size: 36),
+              // Icon container
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: widget.isSelected
+                      ? c.color.withValues(alpha: 0.15)
+                      : const Color(0xFFF3F4F6),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(c.icon, color: c.color, size: 26),
+              ),
               const SizedBox(height: 10),
               Text(
                 c.label,
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                   color: widget.isSelected ? c.color : AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 250),
                 child: widget.isSelected
                     ? Container(
-                        key: const ValueKey('unit'),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                        key: const ValueKey('active'),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
                           color: c.color,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           c.unit,
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       )
                     : Text(
                         c.unit,
-                        key: const ValueKey('unit2'),
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        key: const ValueKey('inactive'),
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
               ),
             ],
@@ -332,9 +449,7 @@ class _TypeCardState extends State<_TypeCard> with SingleTickerProviderStateMixi
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step 2: Value Input
-// ---------------------------------------------------------------------------
+// ─── Step 2: Value Input ──────────────────────────────────────────────────────
 
 class _StepValueInput extends StatelessWidget {
   final TokenCreationState vm;
@@ -357,59 +472,79 @@ class _StepValueInput extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
-          const Text(
-            'Valeur',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-          ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
             'Montant en ${config.unit}',
-            style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary),
+            style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
           ),
           const Spacer(),
+
+          // ── Big value display ──────────────────────────────────────────
           Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Column(
               children: [
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 240),
-                  child: TextField(
-                    controller: TextEditingController(text: vm.valeurText)
-                      ..selection = TextSelection.fromPosition(TextPosition(offset: vm.valeurText.length)),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: config.color,
-                      height: 1,
+                // Value container with subtle background
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: config.color.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: config.color.withValues(alpha: 0.15),
                     ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (v) => ref.read(tokenCreationViewModelProvider.notifier).setValeur(v),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    config.unit,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: config.color.withValues(alpha: 0.7),
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 220),
+                        child: TextField(
+                          controller: TextEditingController(text: vm.valeurText)
+                            ..selection = TextSelection.fromPosition(
+                              TextPosition(offset: vm.valeurText.length),
+                            ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 52,
+                            fontWeight: FontWeight.w800,
+                            color: config.color,
+                            height: 1.0,
+                            letterSpacing: -2,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            hintText: '0',
+                          ),
+                          onChanged: (v) =>
+                              ref.read(tokenCreationViewModelProvider.notifier).setValeur(v),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          config.unit,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: config.color.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+
           const Spacer(),
+
+          // ── Slider ────────────────────────────────────────────────────
           Column(
             children: [
               SliderTheme(
@@ -417,9 +552,9 @@ class _StepValueInput extends StatelessWidget {
                   activeTrackColor: config.color,
                   thumbColor: config.color,
                   overlayColor: config.color.withValues(alpha: 0.12),
-                  inactiveTrackColor: Colors.grey.shade200,
-                  trackHeight: 4,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                  inactiveTrackColor: const Color(0xFFE5E7EB),
+                  trackHeight: 5,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
                 ),
                 child: Slider(
                   value: sliderIndex >= 0 ? sliderIndex.toDouble() : 0,
@@ -433,16 +568,21 @@ class _StepValueInput extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: _sliderValues.where((v) => v <= 10000 || v == _sliderValues.last).map((v) {
-                    final isSelected = valeur != null && valeur >= v && (v >= _sliderValues.last || valeur < _sliderValues[_sliderValues.indexOf(v) + 1]);
+                  children: _sliderValues
+                      .where((v) => v <= 10000 || v == _sliderValues.last)
+                      .map((v) {
+                    final isSelected = valeur != null &&
+                        valeur >= v &&
+                        (v >= _sliderValues.last ||
+                            valeur < _sliderValues[_sliderValues.indexOf(v) + 1]);
                     return Text(
-                      _formatSliderLabel(v),
+                      _formatLabel(v),
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
                         color: isSelected ? config.color : AppTheme.textSecondary,
                       ),
                     );
@@ -457,15 +597,13 @@ class _StepValueInput extends StatelessWidget {
     );
   }
 
-  String _formatSliderLabel(int v) {
+  String _formatLabel(int v) {
     if (v >= 1000) return '${v ~/ 1000}k';
     return v.toString();
   }
 }
 
-// ---------------------------------------------------------------------------
-// Step 3: Summary Card
-// ---------------------------------------------------------------------------
+// ─── Step 3: Summary / Preview ────────────────────────────────────────────────
 
 class _StepSummary extends ConsumerWidget {
   final TokenCreationState vm;
@@ -475,159 +613,313 @@ class _StepSummary extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = TokenTypeConfig.fromType(vm.tokenType);
-    final valeur = double.tryParse(vm.valeurText.replaceAll(',', '.'));
+    final valeur = double.tryParse(vm.valeurText.replaceAll(',', '.')) ?? 0;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           const Text(
-            'Récapitulatif',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Vérifiez les informations avant de générer',
-            style: TextStyle(fontSize: 15, color: AppTheme.textSecondary),
+            'Vérifiez avant de générer',
+            style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 24),
-          Expanded(
-            child: Center(
-              child: _VirtualCard(
-                config: config,
-                valeur: valeur ?? 0,
-                proprietaire: vm.proprietaire,
-              ),
+
+          // ── Premium card preview ─────────────────────────────────────
+          _PreviewCard(config: config, valeur: valeur, proprietaire: vm.proprietaire),
+
+          const SizedBox(height: 24),
+
+          // ── Summary details card ─────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _SummaryRow(
+                  label: 'Type',
+                  value: config.label,
+                  icon: config.icon,
+                  iconColor: config.color,
+                ),
+                const _Divider(),
+                _SummaryRow(
+                  label: 'Valeur',
+                  value: '$valeur ${config.unit}',
+                  icon: Icons.attach_money_rounded,
+                  iconColor: AppTheme.dark,
+                ),
+                const _Divider(),
+                _SummaryRow(
+                  label: 'Propriétaire',
+                  value: vm.proprietaire.isNotEmpty ? vm.proprietaire : '—',
+                  icon: Icons.person_outline_rounded,
+                  iconColor: AppTheme.dark,
+                ),
+                const _Divider(),
+                _SummaryRow(
+                  label: 'Expiration',
+                  value: '30 jours',
+                  icon: Icons.schedule_rounded,
+                  iconColor: AppTheme.dark,
+                ),
+              ],
             ),
           ),
+
+          const SizedBox(height: 12),
         ],
       ),
     );
   }
 }
 
-class _VirtualCard extends StatefulWidget {
+class _PreviewCard extends StatefulWidget {
   final TokenTypeConfig config;
   final double valeur;
   final String proprietaire;
-  const _VirtualCard({required this.config, required this.valeur, required this.proprietaire});
+  const _PreviewCard({
+    required this.config,
+    required this.valeur,
+    required this.proprietaire,
+  });
 
   @override
-  State<_VirtualCard> createState() => _VirtualCardState();
+  State<_PreviewCard> createState() => _PreviewCardState();
 }
 
-class _VirtualCardState extends State<_VirtualCard> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _fadeSlide;
+class _PreviewCardState extends State<_PreviewCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 650),
     );
-    _fadeSlide = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-    _controller.forward();
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _ctrl.forward();
   }
 
   @override
-  void didUpdateWidget(_VirtualCard old) {
+  void didUpdateWidget(_PreviewCard old) {
     super.didUpdateWidget(old);
     if (old.config.type != widget.config.type || old.valeur != widget.valeur) {
-      _controller.forward(from: 0);
+      _ctrl.forward(from: 0);
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final c = widget.config;
-    final width = MediaQuery.of(context).size.width - 64;
+    final screenW = MediaQuery.of(context).size.width;
+    final cardW = screenW - 48.0;
+    final cardH = cardW * 0.60;
 
     return FadeTransition(
-      opacity: _fadeSlide,
+      opacity: _anim,
       child: SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero).animate(_fadeSlide),
-        child: Container(
-          width: width,
-          height: width * 0.62,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [c.color, c.color.withValues(alpha: 0.7)],
+        position:
+            Tween<Offset>(begin: const Offset(0, 0.10), end: Offset.zero)
+                .animate(_anim),
+        child: _buildCard(c, cardW, cardH),
+      ),
+    );
+  }
+
+  Widget _buildCard(TokenTypeConfig c, double cardW, double cardH) {
+    return Container(
+      width: cardW,
+      height: cardH,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          stops: const [0.0, 0.55, 1.0],
+          colors: c.gradientColors,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: c.gradientColors[1].withValues(alpha: 0.50),
+            blurRadius: 36,
+            spreadRadius: -6,
+            offset: const Offset(0, 18),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Decorative circle top-right
+            Positioned(
+              top: -cardH * 0.5,
+              right: -cardH * 0.4,
+              child: Opacity(
+                opacity: 0.08,
+                child: Container(
+                  width: cardH * 1.6,
+                  height: cardH * 1.6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: c.accentColor,
+                  ),
+                ),
+              ),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: c.color.withValues(alpha: 0.35),
-                blurRadius: 30,
-                offset: const Offset(0, 12),
+            // Gloss top edge
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 1.5,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: 0.0),
+                      Colors.white.withValues(alpha: 0.5),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            ),
+            // Gloss top half
+            Positioned(
+              top: 0, left: 0, right: 0,
+              height: cardH * 0.5,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.11),
+                      Colors.white.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.nfc, color: Colors.white70, size: 28),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      c.label,
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Icon(Icons.nfc_rounded,
+                          color: Colors.white.withValues(alpha: 0.75), size: 26),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(c.icon, color: Colors.white, size: 12),
+                            const SizedBox(width: 5),
+                            Text(
+                              c.label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        widget.valeur.toStringAsFixed(0),
+                        style: const TextStyle(
+                          fontSize: 38,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -1.5,
+                          height: 1.0,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: Text(
+                          c.unit,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.70),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _CardInfo(
+                        label: 'PROPRIÉTAIRE',
+                        value: widget.proprietaire.isNotEmpty
+                            ? widget.proprietaire
+                            : '—',
+                      ),
+                      _CardInfo(
+                        label: 'EXPIRATION',
+                        value: '30 jours',
+                        alignRight: true,
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const Spacer(),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    widget.valeur.toStringAsFixed(0),
-                    style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      c.unit,
-                      style: const TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _CardInfo(label: 'Propriétaire', value: widget.proprietaire.isNotEmpty ? widget.proprietaire : '—'),
-                  _CardInfo(label: 'ID', value: '••••${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}'),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -637,17 +929,97 @@ class _VirtualCardState extends State<_VirtualCard> with SingleTickerProviderSta
 class _CardInfo extends StatelessWidget {
   final String label;
   final String value;
-  const _CardInfo({required this.label, required this.value});
+  final bool alignRight;
+  const _CardInfo({
+    required this.label,
+    required this.value,
+    this.alignRight = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 3),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.55),
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color iconColor;
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6));
   }
 }

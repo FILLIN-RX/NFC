@@ -3,107 +3,190 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/appTheme.dart';
+import '../../../../core/services/feedback_service.dart';
+import '../../../../core/widgets/premium_token_card.dart';
+import '../../../home/presentation/providers/token_list_provider.dart';
 import '../providers/repository_provider.dart';
-import '../widgets/token_card.dart';
 
-class TokenConfirmationScreen extends ConsumerWidget {
+class TokenConfirmationScreen extends ConsumerStatefulWidget {
   const TokenConfirmationScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final futureTokens = ref.watch(tokenRepositoryProvider).getAllTokens();
+  ConsumerState<TokenConfirmationScreen> createState() =>
+      _TokenConfirmationScreenState();
+}
 
+class _TokenConfirmationScreenState
+    extends ConsumerState<TokenConfirmationScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+    _ctrl.forward();
+    // Trigger success feedback on screen entry
+    FeedbackService.instance.triggerSuccess();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(
-        title: const Text('Jeton Créé'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppTheme.textPrimary,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
-      body: FutureBuilder(
-        future: futureTokens,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: SafeArea(
+        child: FutureBuilder(
+          future: ref.read(tokenRepositoryProvider).getAllTokens(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.primary),
+              );
+            }
 
-          if (snapshot.hasError || !snapshot.hasData) {
-            return Center(child: Text('Erreur: Impossible de charger le jeton.'));
-          }
-
-          final result = snapshot.data!;
-          return result.when(
-            success: (tokens) {
-              if (tokens.isEmpty) {
-                return const Center(child: Text('Aucun jeton trouvé.'));
-              }
-
-              final latestToken = tokens.first;
-
-              return SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 20),
-                      const Icon(
-                        Icons.check_circle,
-                        color: AppTheme.success,
-                        size: 80,
-                      ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Félicitations !',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Votre jeton a été créé et sauvegardé avec succès.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-                      TokenCard(token: latestToken),
-                      const SizedBox(height: 40),
-                      ElevatedButton(
-                        onPressed: () {
-                          context.go('/');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Retour à l\'accueil',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Center(
+                child: Text(
+                  'Erreur: Impossible de charger le jeton.',
+                  style: const TextStyle(color: AppTheme.textSecondary),
                 ),
               );
-            },
-            failure: (message) => Center(child: Text('Erreur: $message')),
-          );
-        },
+            }
+
+            return snapshot.data!.when(
+              success: (tokens) {
+                if (tokens.isEmpty) {
+                  return const Center(child: Text('Aucun jeton trouvé.'));
+                }
+                final latestToken = tokens.first;
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 48),
+
+                      // ── Animated success icon ─────────────────────────
+                      FadeTransition(
+                        opacity: _fade,
+                        child: ScaleTransition(
+                          scale: _scale,
+                          child: Container(
+                            width: 96,
+                            height: 96,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppTheme.success.withValues(alpha: 0.12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.success.withValues(alpha: 0.28),
+                                  blurRadius: 28,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: AppTheme.success,
+                              size: 52,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // ── Title ─────────────────────────────────────────
+                      FadeTransition(
+                        opacity: _fade,
+                        child: const Text(
+                          'Félicitations !',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      FadeTransition(
+                        opacity: _fade,
+                        child: const Text(
+                          'Votre jeton a été créé et sauvegardé avec succès.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppTheme.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // ── Premium card ──────────────────────────────────
+                      PremiumTokenCard(token: latestToken, animate: true),
+
+                      const SizedBox(height: 40),
+
+                      // ── CTA ───────────────────────────────────────────
+                      SizedBox(
+                        width: double.infinity,
+                        height: 58,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            ref.invalidate(tokenListProvider);
+                            context.go('/');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: const Text(
+                            "Retour à l'accueil",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                );
+              },
+              failure: (message) => Center(
+                child: Text(
+                  'Erreur: $message',
+                  style: const TextStyle(color: AppTheme.error),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

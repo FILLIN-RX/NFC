@@ -48,10 +48,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(28),
                 ),
-                child: const Icon(
-                  Icons.person_outline,
-                  size: 56,
-                  color: AppTheme.textPrimary,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    width: 64,
+                    height: 64,
+                  ),
                 ),
               ),
               const SizedBox(height: 32),

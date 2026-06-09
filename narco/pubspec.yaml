@@ -49,8 +49,11 @@ dependencies:
   hive_flutter: ^1.1.0
   path: ^1.9.0
   json_annotation: ^4.11.0
+  audioplayers: ^6.1.0
+  google_fonts: ^8.1.0
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.3
   flutter_test:
     sdk: flutter
 
@@ -78,7 +81,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/robot_mascot.png
+    - assets/logo.png
+    - assets/images/
+    - assets/sounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -90,6 +95,23 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/logo.png"
+  adaptive_icon_background: "#F5D161"
+  adaptive_icon_foreground: "assets/logo.png"
+  macos:
+    generate: true
+    image_path: "assets/logo.png"
+  windows:
+    generate: true
+    image_path: "assets/logo.png"
+  web:
+    generate: true
+    image_path: "assets/logo.png"
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

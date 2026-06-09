@@ -33,7 +33,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: AppTheme.dark,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.bolt, color: AppTheme.primary, size: 32),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 32,
+                        height: 32,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   const Text(

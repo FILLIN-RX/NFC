@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../token_history/data/services/history_service.dart';
 import '../../../token_history/domain/models/transaction_record.dart';
 
@@ -20,9 +21,9 @@ class StatsBadges extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
-              _buildBadge('Envoyés', sent.toString(), Colors.orange),
+              _buildBadge(AppStrings.filterOutgoing, sent.toString(), Colors.orange),
               const SizedBox(width: 12),
-              _buildBadge('Reçus', received.toString(), Colors.green),
+              _buildBadge(AppStrings.filterIncoming, received.toString(), Colors.green),
             ],
           ),
         );
@@ -34,9 +35,9 @@ class StatsBadges extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [

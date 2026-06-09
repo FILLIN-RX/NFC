@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   AppTheme._();
@@ -9,10 +10,11 @@ class AppTheme {
   static const Color dark = Color(0xFF1A1A1A);
   static const Color tertiary = Color(0xFF1A1A1A); // Identique à dark pour la cohérence
   static const Color cardColor = Colors.white;
-  
+  static const Color chipBackground = Color(0xFFEFECE5);
+
   static const Color textPrimary = Color(0xFF1A1A1A);
   static const Color textSecondary = Color(0xFF757575);
-  
+
   // Couleurs d'état
   static const Color success = Color(0xFF4CAF50);
   static const Color error = Color(0xFFE53935);
@@ -21,17 +23,26 @@ class AppTheme {
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     scaffoldBackgroundColor: background,
+    fontFamily: GoogleFonts.inter().fontFamily,
+    textTheme: GoogleFonts.interTextTheme(),
     colorScheme: ColorScheme.light(
       primary: primary,
       secondary: dark,
       tertiary: tertiary,
       surface: cardColor,
     ),
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textPrimary),
+      titleTextStyle: GoogleFonts.inter(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        color: textPrimary,
+      ),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: dark,
     ),
   );
 }
