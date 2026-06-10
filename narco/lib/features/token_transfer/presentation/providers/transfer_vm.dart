@@ -1,4 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/services/user_service.dart';
 import '../../../../core/utils/app_logger.dart';
@@ -7,6 +8,8 @@ import '../../../home/presentation/providers/active_transfer_provider.dart';
 import '../../../home/presentation/providers/token_list_provider.dart';
 import '../../../token_creation/domain/models/token.dart';
 import '../../../token_creation/presentation/providers/repository_provider.dart';
+import '../../../token_history/data/services/history_service.dart';
+import '../../../token_history/domain/models/transaction_record.dart';
 import '../../data/services/bluetooth_service.dart';
 import '../../data/services/nfc_service.dart';
 import '../screens/transfer_selection_screen.dart';
@@ -111,6 +114,7 @@ class TransferViewModel extends _$TransferViewModel {
     switch (result) {
       case Success():
         await repository.updateTokenStatus(token.tokenId, 'transféré');
+        _recordTransfer(token, TransactionType.outgoing, 'nfc');
         _refreshWallet();
         state = state.copyWith(status: TransferStatus.success, error: null, progress: 1.0);
       case Failure(:final message):
@@ -169,6 +173,7 @@ class TransferViewModel extends _$TransferViewModel {
     final saveResult = await ref.read(tokenRepositoryProvider).saveToken(token);
     if (saveResult is Success) {
       ref.read(userServiceProvider).markTokenReceived(token.tokenId);
+      _recordTransfer(token, TransactionType.incoming, state.method);
       _refreshWallet();
       if (state.method == 'bluetooth') {
         await ref.read(bluetoothServiceProvider).respondToTransfer(true);
@@ -238,11 +243,28 @@ class TransferViewModel extends _$TransferViewModel {
     switch (result) {
       case Success():
         await repository.updateTokenStatus(token.tokenId, 'transféré');
+        _recordTransfer(token, TransactionType.outgoing, 'bluetooth');
         _refreshWallet();
         state = state.copyWith(status: TransferStatus.success, error: null, progress: 1.0);
       case Failure(:final message):
         state = state.copyWith(status: TransferStatus.error, error: message, progress: null);
     }
+  }
+
+  void _recordTransfer(Token token, TransactionType type, String method) {
+    final uuid = const Uuid();
+    HistoryService.instance.recordTransaction(
+      TransactionRecord(
+        id: uuid.v4(),
+        tokenId: token.tokenId,
+        type: type,
+        date: DateTime.now(),
+        status: 'Validé',
+        method: method == 'bluetooth' ? TransferMethod.bluetooth : TransferMethod.nfc,
+        amount: token.valeur,
+        currency: token.valeurUnite,
+      ),
+    );
   }
 
   /// Reçoit un jeton via Bluetooth (rôle serveur RFCOMM).
