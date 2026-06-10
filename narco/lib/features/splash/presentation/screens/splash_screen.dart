@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/appTheme.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/widgets/app_logo.dart';
+import '../../../../core/services/user_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -36,8 +37,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _controller.forward();
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
-      final isLoggedIn = ref.read(isLoggedInProvider);
-      context.go(isLoggedIn ? '/' : '/login');
+      final userService = ref.read(userServiceProvider);
+      final isLoggedIn = userService.isLoggedIn();
+      final isBiometricEnabled = userService.isBiometricEnabled();
+      
+      if (isLoggedIn && !isBiometricEnabled) {
+        context.go('/');
+      } else {
+        context.go('/login');
+      }
     });
   }
 
@@ -59,22 +67,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  height: 100,
-                  width: 100,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: Image.asset(
-                      'assets/logo.png',
-                      width: 64,
-                      height: 64,
-                    ),
-                  ),
-                ),
+                const AppLogo(size: 100, borderRadius: 28, showShadow: true),
                 const SizedBox(height: 24),
                 const Text(
                   'Narco',

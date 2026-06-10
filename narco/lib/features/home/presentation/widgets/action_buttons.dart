@@ -15,7 +15,7 @@ class ActionButtons extends StatelessWidget {
         label: AppStrings.actionSend,
         icon: Icons.north_east_rounded,
         color: AppTheme.dark,
-        onTap: () => context.push('/transfer'),
+        onTap: () => StatefulNavigationShell.of(context).goBranch(2),
       ),
       _ActionItem(
         label: AppStrings.actionReceive,
@@ -27,13 +27,13 @@ class ActionButtons extends StatelessWidget {
         label: AppStrings.actionCollect,
         icon: Icons.account_balance_wallet_outlined,
         color: AppTheme.dark,
-        onTap: () => context.push('/create-token'),
+        onTap: () => StatefulNavigationShell.of(context).goBranch(1),
       ),
       _ActionItem(
         label: AppStrings.actionStats,
         icon: Icons.bar_chart_rounded,
         color: AppTheme.dark,
-        onTap: () => context.push('/history'),
+        onTap: () => StatefulNavigationShell.of(context).goBranch(3),
       ),
     ];
 

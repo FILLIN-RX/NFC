@@ -88,13 +88,11 @@ class _NfcAnimationOverlayState extends State<NfcAnimationOverlay>
   }
 
   Widget _buildWave(int index, Color color) {
-    // Staggered with Interval for smoother per-ring easing
-    final interval = Interval(
-      index / _waveCount,
-      (index / _waveCount) + (1 / _waveCount) * 2.0,
-      curve: Curves.easeOut,
-    );
-    final progress = interval.transform(_controller.value % 1.0).clamp(0.0, 1.0);
+    // Staggered progress calculation using offset and modulo for a smooth loop.
+    // This avoids using Interval and its strict 0.0-1.0 constraints.
+    final waveValue = (_controller.value - (index / _waveCount)) % 1.0;
+    final progress = Curves.easeOut.transform(waveValue);
+
     final scale = 0.30 + progress * 0.70;
     final opacity = (1.0 - progress).clamp(0.0, 1.0);
 

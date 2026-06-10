@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/appTheme.dart';
 import '../../../token_creation/domain/models/token.dart';
 import '../../../token_creation/presentation/providers/repository_provider.dart';
-import '../../../token_creation/presentation/widgets/token_card.dart';
+import '../../../token_creation/presentation/widgets/token_gradient_card.dart';
 import '../widgets/channel_selection_dialog.dart';
 
 class TransferSelectionScreen extends ConsumerWidget {
@@ -42,9 +42,12 @@ class TransferSelectionScreen extends ConsumerWidget {
             itemCount: tokens.length,
             itemBuilder: (context, index) {
               final token = tokens[index];
-              return GestureDetector(
-                onTap: () => _onTokenSelected(context, token),
-                child: TokenCard(token: token),
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+                child: GestureDetector(
+                  onTap: () => _onTokenSelected(context, token),
+                  child: TokenGradientCard(token: token, height: 200),
+                ),
               );
             },
           );

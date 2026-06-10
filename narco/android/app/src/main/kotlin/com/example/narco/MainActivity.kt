@@ -2,7 +2,7 @@ package com.example.narco
 
 import android.os.Handler
 import android.os.Looper
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
@@ -12,7 +12,7 @@ import io.flutter.plugin.common.MethodChannel
  *  - MethodChannel `narco/hce`        : startEmulation(payload) / stopEmulation
  *  - EventChannel  `narco/hce_events` : progression et fin de transmission
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
 
     private val methodChannelName = "narco/hce"
     private val eventChannelName = "narco/hce_events"

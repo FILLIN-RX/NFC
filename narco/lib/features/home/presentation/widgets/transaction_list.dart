@@ -32,7 +32,7 @@ class TransactionList extends ConsumerWidget {
                 ),
               ),
               GestureDetector(
-                onTap: () => context.push('/history'),
+                onTap: () => StatefulNavigationShell.of(context).goBranch(3),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 6),

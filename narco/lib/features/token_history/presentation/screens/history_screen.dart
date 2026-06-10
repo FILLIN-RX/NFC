@@ -33,13 +33,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
-  Future<void> _loadHistory({String? query}) async {
+  Future<void> _loadHistory({String? query, TransactionType? type}) async {
     setState(() => _isLoading = true);
-    final results = await HistoryService.instance.getTransactions(query: query);
+    final results = await HistoryService.instance.getTransactions(query: query, type: type);
     setState(() {
       _transactions = results;
       _isLoading = false;
     });
+  }
+
+  TransactionType? _filterToType(String filter) {
+    switch (filter) {
+      case 'Income':
+        return TransactionType.incoming;
+      case 'Expenses':
+        return TransactionType.outgoing;
+      default:
+        return null;
+    }
   }
 
   @override
@@ -62,9 +73,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             const Text('Narco'),
           ],
         ),
-        actions: [
-          IconButton(icon: const Icon(Icons.chat_bubble_outline), onPressed: () {}),
-        ],
+        actions: const [],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,18 +89,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   const SizedBox(height: 24),
                   _buildSpendingCard(),
                   const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Recent Transactions',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'View All',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  const Text(
+                    'Recent Transactions',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
                   _buildTransactionList(),
@@ -148,7 +148,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildFilterChips() {
-    final filters = ['All', 'Income', 'Expenses', 'Savings'];
+    final filters = ['All', 'Income', 'Expenses'];
     return SizedBox(
       height: 40,
       child: ListView.separated(
@@ -160,7 +160,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           final filter = filters[index];
           final isSelected = _activeFilter == filter;
           return GestureDetector(
-            onTap: () => setState(() => _activeFilter = filter),
+            onTap: () {
+              setState(() => _activeFilter = filter);
+              _loadHistory(type: _filterToType(filter));
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
@@ -186,6 +189,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildSpendingCard() {
+    final now = DateTime.now();
+    final monthName = DateFormat('MMMM').format(now);
+    final currency = _transactions.isNotEmpty
+        ? _transactions.first.currency
+        : '€';
+
+    final outgoing = _transactions
+        .where((t) => t.type == TransactionType.outgoing)
+        .fold<double>(0, (sum, t) => sum + t.amount);
+
+    final integer = outgoing.floor();
+    final decimal = ((outgoing - integer) * 100).round();
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -196,49 +212,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Total Spending (June)',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black54),
+          Text(
+            'Total Spending ($monthName)',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black54),
           ),
           const SizedBox(height: 8),
-          const Row(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '€1,432',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
+                '$currency${_formatAmount(integer)}',
+                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
               ),
-              Text(
-                '.80',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54),
-              ),
+              if (decimal > 0)
+                Text(
+                  '.$decimal',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54),
+                ),
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.trending_down, size: 14, color: Colors.black54),
-                    SizedBox(width: 4),
-                    Text('12%', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text('vs last month', style: TextStyle(fontSize: 12, color: Colors.black54)),
-            ],
-          ),
         ],
       ),
     );
+  }
+
+  String _formatAmount(int amount) {
+    if (amount >= 1000) {
+      return '${(amount / 1000).toStringAsFixed(1)}k';
+    }
+    return amount.toString();
   }
 
   Widget _buildTransactionList() {
@@ -290,14 +294,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${DateFormat('HH:mm a').format(tx.date)} • ${tx.method.name.toUpperCase()}',
+                      '${DateFormat('dd MMM, HH:mm').format(tx.date)} • ${tx.method.name.toUpperCase()}',
                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
               Text(
-                '${isOutgoing ? "-" : "+"} €${tx.amount.toStringAsFixed(2)}',
+                '${isOutgoing ? "-" : "+"} ${tx.currency}${_formatAmount(tx.amount.toInt())}',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 16,

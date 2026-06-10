@@ -72,12 +72,27 @@ class HistoryService {
       ];
     }
 
-    // Logique réelle pour Mobile
     final db = await database;
     if (db == null) return [];
 
+    final whereClause = <String>[];
+    final whereArgs = <dynamic>[];
+
+    if (query != null && query.isNotEmpty) {
+      whereClause.add('(peerName LIKE ? OR currency LIKE ?)');
+      final q = '%$query%';
+      whereArgs.addAll([q, q]);
+    }
+
+    if (type != null) {
+      whereClause.add('type = ?');
+      whereArgs.add(type.name);
+    }
+
     final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
+      where: whereClause.isNotEmpty ? whereClause.join(' AND ') : null,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: 'date DESC',
       limit: limit,
       offset: offset,

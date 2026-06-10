@@ -12,6 +12,12 @@ class UserService {
     await _box.put('name', name);
   }
 
+  bool isBiometricEnabled() => _box.get('biometricEnabled', defaultValue: false) as bool;
+
+  Future<void> setBiometricEnabled(bool enabled) async {
+    await _box.put('biometricEnabled', enabled);
+  }
+
   bool isLoggedIn() {
     final name = getUserName();
     return name != null && name.isNotEmpty;

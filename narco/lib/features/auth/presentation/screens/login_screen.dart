@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/appTheme.dart';
+import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/services/user_service.dart';
+import '../../../../core/services/biometric_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +17,39 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _nameController = TextEditingController();
   bool _isSubmitting = false;
+  bool _canCheckBiometrics = false;
+  bool _enableBiometric = false;
+  bool _isUnlockMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometrics();
+    _checkUnlockMode();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final canCheck = await ref.read(biometricServiceProvider).canAuthenticate();
+    if (mounted) {
+      setState(() => _canCheckBiometrics = canCheck);
+    }
+  }
+
+  void _checkUnlockMode() {
+    final userService = ref.read(userServiceProvider);
+    if (userService.isLoggedIn() && userService.isBiometricEnabled()) {
+      setState(() => _isUnlockMode = true);
+      // Auto-trigger biometric on unlock mode
+      WidgetsBinding.instance.addPostFrameCallback((_) => _authenticate());
+    }
+  }
+
+  Future<void> _authenticate() async {
+    final success = await ref.read(biometricServiceProvider).authenticate();
+    if (success && mounted) {
+      context.go('/');
+    }
+  }
 
   @override
   void dispose() {
@@ -27,36 +62,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (name.isEmpty) return;
 
     setState(() => _isSubmitting = true);
-    await ref.read(userServiceProvider).setUserName(name);
+    final userService = ref.read(userServiceProvider);
+    await userService.setUserName(name);
+    await userService.setBiometricEnabled(_enableBiometric);
+    
     if (mounted) context.go('/');
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isUnlockMode) {
+      return _buildUnlockUI();
+    }
+    return _buildLoginUI();
+  }
+
+  Widget _buildUnlockUI() {
+    final userName = ref.read(userServiceProvider).getUserName() ?? '';
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
-        child: Padding(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLogo(),
+                const SizedBox(height: 32),
+                Text(
+                  'Bonjour $userName',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Veuillez déverrouiller pour continuer',
+                  style: TextStyle(fontSize: 16, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 48),
+                IconButton(
+                  iconSize: 80,
+                  onPressed: _authenticate,
+                  icon: const Icon(
+                    Icons.fingerprint_rounded,
+                    color: AppTheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _authenticate,
+                  child: const Text(
+                    'Utiliser la biométrie',
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginUI() {
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      body: SafeArea(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
             children: [
-              const Spacer(),
-              Container(
-                height: 100,
-                width: 100,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: Image.asset(
-                    'assets/logo.png',
-                    width: 64,
-                    height: 64,
-                  ),
-                ),
-              ),
+              const SizedBox(height: 60),
+              _buildLogo(),
               const SizedBox(height: 32),
               const Text(
                 'Bienvenue sur Narco',
@@ -102,6 +187,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 onChanged: (_) => setState(() {}),
                 onSubmitted: _nameController.text.trim().isEmpty ? null : (_) => _submit(),
               ),
+              
+              if (_canCheckBiometrics) ...[
+                const SizedBox(height: 24),
+                SwitchListTile(
+                  title: const Text(
+                    'Activer le déverrouillage biométrique',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: const Text('Utilisez votre empreinte ou visage pour accéder à l\'app'),
+                  value: _enableBiometric,
+                  onChanged: (val) => setState(() => _enableBiometric = val),
+                  activeThumbColor: AppTheme.primary,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
@@ -136,11 +237,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                 ),
               ),
-              const Spacer(),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildLogo() {
+    return const AppLogo(size: 100, borderRadius: 28, showShadow: true);
   }
 }
